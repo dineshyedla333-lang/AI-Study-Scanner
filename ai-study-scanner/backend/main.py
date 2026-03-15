@@ -12,11 +12,16 @@ Or run directly with env python (no activation needed):
 from __future__ import annotations
 
 import logging
+import os
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from backend.ai_solver import MissingAPIKeyError, solve_gemini
 from backend.config import load_settings
@@ -30,12 +35,45 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ai-study-scanner")
 
+# Sentry (enabled only if SENTRY_DSN is set)
+_sentry_dsn = os.getenv("SENTRY_DSN")
+if _sentry_dsn:
+    sentry_logging = LoggingIntegration(
+        level=logging.INFO,  # breadcrumbs
+        event_level=logging.ERROR,  # send errors as events
+    )
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        environment=settings.env,
+        release=os.getenv("SENTRY_RELEASE"),
+        traces_sample_rate=float(
+            os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0"),
+        ),
+        integrations=[sentry_logging, FastApiIntegration()],
+    )
+
 app = FastAPI(title=settings.app_name)
+
+# Prometheus metrics
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 class SolveRequest(BaseModel):
-    question_text: str = Field(..., min_length=1, max_length=20000)
-    exam_mode: bool = False
+    # Accept both new and legacy keys for compatibility:
+    # - Android can send: question + mode
+    # - Existing clients can send: question_text + exam_mode
+    question_text: str | None = Field(None, min_length=1, max_length=20000)
+    exam_mode: bool | None = None
+    question: str | None = Field(None, min_length=1, max_length=20000)
+    mode: bool | None = None
+
+    def normalized(self) -> tuple[str, bool]:
+        question_text = (self.question_text or self.question or "").strip()
+        if self.exam_mode is not None:
+            exam_mode = bool(self.exam_mode)
+        else:
+            exam_mode = bool(self.mode)
+        return question_text, exam_mode
 
 
 class SolveResponse(BaseModel):
@@ -64,12 +102,19 @@ async def unhandled_exception_handler(
 
 @app.post("/solve", response_model=SolveResponse)
 def solve_endpoint(req: SolveRequest) -> SolveResponse:
-    prompt = build_prompt(req.question_text, req.exam_mode)
+    question_text, exam_mode = req.normalized()
+    if not question_text:
+        raise HTTPException(
+            status_code=422,
+            detail="question_text (or question) is required",
+        )
+
+    prompt = build_prompt(question_text, exam_mode)
 
     try:
         result = solve_gemini(
-            question_text=req.question_text,
-            exam_mode=req.exam_mode,
+            question_text=question_text,
+            exam_mode=exam_mode,
             settings=settings,
             prompt=prompt,
         )
@@ -88,7 +133,7 @@ def solve_endpoint(req: SolveRequest) -> SolveResponse:
             "provider": result.provider,
             "model": result.model,
             "latency_ms": result.latency_ms,
-            "exam_mode": req.exam_mode,
+            "exam_mode": exam_mode,
         },
     )
 

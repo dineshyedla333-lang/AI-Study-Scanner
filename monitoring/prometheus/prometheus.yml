@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "fastapi-backend"
+    metrics_path: /metrics
+    static_configs:
+      # If you run backend via docker-compose in the same docker network, change this to the service name.
+      # Example: targets: ["backend:8000"]
+      - targets: ["host.docker.internal:8000"]

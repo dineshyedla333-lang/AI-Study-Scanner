@@ -31,12 +31,24 @@ fun AIStudyScannerApp() {
         composable(Routes.SCANNER) {
             ScannerScreen(
                 onBack = { navController.popBackStack() },
-                onSolved = { navController.navigate(Routes.SOLUTION) }
+                onSolved = { extractedText ->
+                    navController.currentBackStackEntry?.savedStateHandle?.set(
+                        "extracted_text",
+                        extractedText
+                    )
+                    navController.navigate(Routes.SOLUTION)
+                }
             )
         }
 
         composable(Routes.SOLUTION) {
-            SolutionScreen(onBack = { navController.popBackStack() })
+            val extractedText =
+                navController.previousBackStackEntry?.savedStateHandle?.get<String>("extracted_text")
+                    ?: ""
+            SolutionScreen(
+                onBack = { navController.popBackStack() },
+                extractedText = extractedText
+            )
         }
 
         composable(Routes.HISTORY) {

@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -40,6 +41,9 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
 import java.util.concurrent.Executor
 
@@ -47,7 +51,7 @@ import java.util.concurrent.Executor
 @Composable
 fun ScannerScreen(
     onBack: () -> Unit,
-    onSolved: () -> Unit
+    onSolved: (String) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -108,19 +112,25 @@ fun ScannerScreen(
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Button(onClick = { onSolved() }) {
+                Button(onClick = { onSolved("") }) {
                     Text("Skip")
                 }
 
-                Button(onClick = {
-                    capturePhoto(
-                        context = context,
-                        imageCapture = imageCapture,
-                        executor = executor
-                    )
-                    // For now we just navigate to solution screen after capture.
-                    onSolved()
-                }) {
+                Button(
+                    onClick = {
+                        capturePhoto(
+                            context = context,
+                            imageCapture = imageCapture,
+                            executor = executor,
+                            onTextExtracted = { extracted ->
+                                onSolved(extracted)
+                            },
+                            onError = {
+                                onSolved("")
+                            }
+                        )
+                    }
+                ) {
                     Text("Capture")
                 }
             }
@@ -182,7 +192,9 @@ private fun CameraPreview(
 private fun capturePhoto(
     context: Context,
     imageCapture: ImageCapture,
-    executor: Executor
+    executor: Executor,
+    onTextExtracted: (String) -> Unit,
+    onError: (Exception) -> Unit
 ) {
     val outputDir = context.cacheDir
     val file = File(outputDir, "scan_${System.currentTimeMillis()}.jpg")
@@ -193,12 +205,41 @@ private fun capturePhoto(
         executor,
         object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                // TODO: run OCR (ML Kit) and call backend solve API
+                val savedUri: Uri = outputFileResults.savedUri ?: Uri.fromFile(file)
+                runOcr(
+                    context = context,
+                    imageUri = savedUri,
+                    onTextExtracted = onTextExtracted,
+                    onError = onError
+                )
             }
 
             override fun onError(exception: ImageCaptureException) {
-                // TODO: show error UI
+                onError(exception)
             }
         }
     )
+}
+
+private fun runOcr(
+    context: Context,
+    imageUri: Uri,
+    onTextExtracted: (String) -> Unit,
+    onError: (Exception) -> Unit
+) {
+    try {
+        val image = InputImage.fromFilePath(context, imageUri)
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+
+        recognizer
+            .process(image)
+            .addOnSuccessListener { visionText ->
+                onTextExtracted(visionText.text.orEmpty().trim())
+            }
+            .addOnFailureListener { e ->
+                onError(e)
+            }
+    } catch (e: Exception) {
+        onError(e)
+    }
 }

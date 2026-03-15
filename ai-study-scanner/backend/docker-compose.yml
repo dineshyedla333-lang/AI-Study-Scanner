@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      # FastAPI app settings
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      ENV: "${ENV:-prod}"
+
+      # Gemini
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      GEMINI_MODEL: "${GEMINI_MODEL:-gemini-1.5-flash}"
+      GEMINI_TIMEOUT_S: "${GEMINI_TIMEOUT_S:-30.0}"
+    restart: unless-stopped
