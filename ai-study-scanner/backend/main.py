@@ -22,6 +22,9 @@ from pydantic import BaseModel, Field
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from backend.ai_solver import MissingAPIKeyError, solve_gemini
 from backend.config import load_settings
@@ -53,6 +56,11 @@ if _sentry_dsn:
     )
 
 app = FastAPI(title=settings.app_name)
+
+# Rate limiting (basic anti-abuse protection)
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Prometheus metrics
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
@@ -101,6 +109,7 @@ async def unhandled_exception_handler(
 
 
 @app.post("/solve", response_model=SolveResponse)
+@limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "10/minute"))
 def solve_endpoint(req: SolveRequest) -> SolveResponse:
     question_text, exam_mode = req.normalized()
     if not question_text:
