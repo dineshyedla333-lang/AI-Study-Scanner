@@ -110,7 +110,7 @@ async def unhandled_exception_handler(
 
 @app.post("/solve", response_model=SolveResponse)
 @limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "10/minute"))
-def solve_endpoint(req: SolveRequest) -> SolveResponse:
+def solve_endpoint(request: Request, req: SolveRequest) -> SolveResponse:
     question_text, exam_mode = req.normalized()
     if not question_text:
         raise HTTPException(
