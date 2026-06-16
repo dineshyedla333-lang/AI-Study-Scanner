@@ -26,9 +26,16 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from backend.ai_solver import MissingAPIKeyError, solve_gemini
-from backend.config import load_settings
-from backend.prompts import build_prompt
+from ai_solver import (
+    AgenticSolveResult,
+    MissingAPIKeyError,
+    SolveResult,
+    solve_agentic,
+    solve_gemini,
+)
+from config import load_settings
+from cost_utils import TTLCache, cache_key_for, normalize_question_text
+from prompts import build_prompt
 
 settings = load_settings()
 
@@ -37,6 +44,10 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("ai-study-scanner")
+solve_cache = TTLCache(
+    max_size=settings.solve_cache_max_size,
+    ttl_seconds=settings.solve_cache_ttl_s,
+)
 
 # Sentry (enabled only if SENTRY_DSN is set)
 _sentry_dsn = os.getenv("SENTRY_DSN")
@@ -76,7 +87,11 @@ class SolveRequest(BaseModel):
     mode: bool | None = None
 
     def normalized(self) -> tuple[str, bool]:
-        question_text = (self.question_text or self.question or "").strip()
+        raw_question = self.question_text or self.question or ""
+        question_text = normalize_question_text(
+            raw_question,
+            max_chars=settings.max_question_chars,
+        )
         if self.exam_mode is not None:
             exam_mode = bool(self.exam_mode)
         else:
@@ -89,6 +104,20 @@ class SolveResponse(BaseModel):
     model: str
     answer: str
     latency_ms: int
+
+
+class AgentStepResponse(BaseModel):
+    name: str
+    output: str
+    latency_ms: int
+
+
+class AgenticSolveResponse(BaseModel):
+    provider: Literal["gemini"]
+    model: str
+    steps: list[AgentStepResponse]
+    answer: str
+    total_latency_ms: int
 
 
 @app.get("/health")
@@ -118,7 +147,33 @@ def solve_endpoint(request: Request, req: SolveRequest) -> SolveResponse:
             detail="question_text (or question) is required",
         )
 
-    prompt = build_prompt(question_text, exam_mode)
+    prompt = build_prompt(
+        question_text,
+        exam_mode,
+        answer_style=settings.prompt_answer_style,
+    )
+    key = cache_key_for(question_text, exam_mode)
+    cached_result = solve_cache.get(key)
+    if isinstance(cached_result, SolveResult):
+        logger.info(
+            "Solved from cache",
+            extra={
+                "provider": cached_result.provider,
+                "model": cached_result.model,
+                "latency_ms": cached_result.latency_ms,
+                "exam_mode": exam_mode,
+                "cache_hit": True,
+                "question_chars": len(question_text),
+                "prompt_chars": len(prompt),
+                "cache_size": solve_cache.stats()["size"],
+            },
+        )
+        return SolveResponse(
+            provider="gemini",
+            model=cached_result.model,
+            answer=cached_result.answer,
+            latency_ms=cached_result.latency_ms,
+        )
 
     try:
         result = solve_gemini(
@@ -136,6 +191,8 @@ def solve_endpoint(request: Request, req: SolveRequest) -> SolveResponse:
             detail="Upstream AI provider error",
         ) from e
 
+    solve_cache.set(key, result)
+
     logger.info(
         "Solved",
         extra={
@@ -143,6 +200,11 @@ def solve_endpoint(request: Request, req: SolveRequest) -> SolveResponse:
             "model": result.model,
             "latency_ms": result.latency_ms,
             "exam_mode": exam_mode,
+            "cache_hit": False,
+            "question_chars": len(question_text),
+            "prompt_chars": len(prompt),
+            "answer_chars": len(result.answer),
+            "cache_size": solve_cache.stats()["size"],
         },
     )
 
@@ -151,4 +213,77 @@ def solve_endpoint(request: Request, req: SolveRequest) -> SolveResponse:
         model=result.model,
         answer=result.answer,
         latency_ms=result.latency_ms,
+    )
+
+
+@app.post("/solve/agent", response_model=AgenticSolveResponse)
+@limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "10/minute"))
+def agent_solve_endpoint(
+    request: Request, req: SolveRequest
+) -> AgenticSolveResponse:
+    question_text, exam_mode = req.normalized()
+    if not question_text:
+        raise HTTPException(
+            status_code=422,
+            detail="question_text (or question) is required",
+        )
+
+    key = "agent:" + cache_key_for(question_text, exam_mode)
+    cached = solve_cache.get(key)
+    if isinstance(cached, AgenticSolveResult):
+        logger.info(
+            "Agent solved from cache",
+            extra={"cache_hit": True, "question_chars": len(question_text)},
+        )
+        return AgenticSolveResponse(
+            provider="gemini",
+            model=cached.model,
+            steps=[
+                AgentStepResponse(
+                    name=s.name, output=s.output, latency_ms=s.latency_ms
+                )
+                for s in cached.steps
+            ],
+            answer=cached.answer,
+            total_latency_ms=cached.total_latency_ms,
+        )
+
+    try:
+        result = solve_agentic(
+            question_text=question_text,
+            exam_mode=exam_mode,
+            settings=settings,
+        )
+    except MissingAPIKeyError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Agent solve failed")
+        raise HTTPException(
+            status_code=502,
+            detail="Upstream AI provider error",
+        ) from e
+
+    solve_cache.set(key, result)
+    logger.info(
+        "Agent solved",
+        extra={
+            "model": result.model,
+            "total_latency_ms": result.total_latency_ms,
+            "steps": len(result.steps),
+            "exam_mode": exam_mode,
+            "cache_hit": False,
+        },
+    )
+
+    return AgenticSolveResponse(
+        provider="gemini",
+        model=result.model,
+        steps=[
+            AgentStepResponse(
+                name=s.name, output=s.output, latency_ms=s.latency_ms
+            )
+            for s in result.steps
+        ],
+        answer=result.answer,
+        total_latency_ms=result.total_latency_ms,
     )

@@ -3,6 +3,8 @@ package com.dineshyedla.aistudyscanner.screens
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dineshyedla.aistudyscanner.history.HistoryRepository
+import com.dineshyedla.aistudyscanner.network.AgentStepResponse
 import com.dineshyedla.aistudyscanner.network.ApiClient
 import com.dineshyedla.aistudyscanner.network.SolveRequest
 import com.dineshyedla.aistudyscanner.usage.UsageRepository
@@ -16,6 +18,8 @@ data class SolutionUiState(
     val extractedText: String = "",
     val examMode: Boolean = true,
     val isLoading: Boolean = false,
+    val currentAgentStep: String = "",
+    val agentSteps: List<AgentStepResponse> = emptyList(),
     val answer: String? = null,
     val error: String? = null,
     val usage: UsageStatus? = null,
@@ -42,7 +46,13 @@ class SolutionViewModel(
             return
         }
 
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null, answer = null)
+        _uiState.value = _uiState.value.copy(
+            isLoading = true,
+            error = null,
+            answer = null,
+            agentSteps = emptyList(),
+            currentAgentStep = "Checking quota…",
+        )
 
         viewModelScope.launch {
             try {
@@ -52,24 +62,39 @@ class SolutionViewModel(
                 if (!usage.isAllowed) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        currentAgentStep = "",
                         error = "Daily free limit reached (10/day). Try again tomorrow.",
                     )
                     return@launch
                 }
 
-                val resp = ApiClient.api.solve(
+                _uiState.value = _uiState.value.copy(
+                    currentAgentStep = "Agent: classifying question…"
+                )
+
+                val resp = ApiClient.api.agentSolve(
                     SolveRequest(
                         question = question,
                         mode = _uiState.value.examMode,
                     )
                 )
+
+                HistoryRepository.getInstance(context).saveSolvedQuestion(
+                    questionText = question,
+                    answerText = resp.answer,
+                    examMode = _uiState.value.examMode,
+                )
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    currentAgentStep = "",
+                    agentSteps = resp.steps,
                     answer = resp.answer,
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    currentAgentStep = "",
                     error = (e.message ?: "Network/Firebase error"),
                 )
             }

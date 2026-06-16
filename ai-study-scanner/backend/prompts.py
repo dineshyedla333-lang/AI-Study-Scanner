@@ -1,70 +1,112 @@
 from __future__ import annotations
 
 
-SYSTEM_PROMPT = """You are an AI Study Scanner tutor that solves student
-questions for Indian exams.
+SYSTEM_PROMPT = (
+    "You solve Indian school and entrance exam questions. "
+    "Be accurate, brief, and easy to score from. "
+    "If the question is unclear or incomplete, "
+    "ask up to 2 short clarifying questions. "
+    "If you must assume something, state it in one short line."
+)
 
-Goals (always):
-- Be correct, clear, and exam-friendly
-- Use simple language (student level)
-- Show only the steps needed to understand and score marks
-- Prefer standard NCERT/CBSE wording where applicable
-- Use clean formatting with short headings and numbered steps
+# Agent Step 1: classify the question and choose an approach
+CLASSIFY_PROMPT_TEMPLATE = (
+    "You are a question classifier for Indian school and entrance exams.\n"
+    "Analyze the question below and respond with JSON only — no extra text.\n"
+    "JSON fields (all required):\n"
+    '  "subject":    one of Math / Physics / Chemistry / Biology'
+    " / English / History / Geography / Other\n"
+    '  "topic":      specific topic'
+    ' (e.g. "Quadratic Equations", "Newton\'s Laws")\n'
+    '  "difficulty": Easy / Medium / Hard\n'
+    '  "exam_board": CBSE / JEE / NEET / Board\n'
+    '  "approach":   one-line best strategy to solve this'
+    ' (e.g. "Factoring: find two numbers that multiply to c and add to b")\n'
+    "\nQuestion:\n{question_text}"
+)
 
-Safety/quality:
-- If the question is incomplete/unclear, ask 1-2 clarification questions first.
-- If an assumption is required, state it clearly.
+# Agent Step 2: solve using the plan from Step 1
+AGENT_SOLVE_PROMPT_TEMPLATE = (
+    "You solve Indian school and entrance exam questions.\n"
+    "Classification — Subject: {subject} | Topic: {topic}"
+    " | Difficulty: {difficulty} | Board: {exam_board}\n"
+    "Recommended approach: {approach}\n\n"
+    "{exam_guide}\n"
+    "{style_guide}\n"
+    "{mode_line}\n"
+    "Question:\n{question_text}"
+)
 
-Output format (default):
-1) **Given/What is asked**
-2) **Concept/Formula**
-3) **Steps**
-4) **Final Answer**
-
-When exam_mode=true:
-- Keep steps short (no long reasoning)
-- No unnecessary commentary
-- Highlight final answer clearly
-"""
+ANSWER_STYLE_GUIDE = {
+    "compact": (
+        "Keep the reply concise.\n"
+        "Use this format:\n"
+        "1. Given\n"
+        "2. Method/Formula\n"
+        "3. Steps\n"
+        "4. Final Answer\n"
+        "Keep each section short. No extra chat."
+    ),
+    "ultra_compact": (
+        "Be very concise.\n"
+        "Use this format:\n"
+        "Method/Formula\n"
+        "Steps\n"
+        "Final Answer\n"
+        "Skip long explanations."
+    ),
+}
 
 EXAM_MODE_GUIDE = {
-    "CBSE": """CBSE mode:
-- Focus on NCERT concepts, definitions, and step-wise marking scheme
-- Use units and correct significant figures
-- Add a short “Reason/Concept” line for theory questions
-- For numericals: write formula → substitution → answer with units
-""",
-    "JEE": """JEE mode:
-- Be concise and calculation-efficient
-- Use standard shortcuts only if they are commonly accepted (mention key idea)
-- Prefer vector/algebraic methods where shorter
-- For multiple steps: keep it in a compact chain (Step 1, Step 2...)
-""",
-    "NEET": """NEET mode:
-- Focus on NCERT line-by-line clarity, especially Biology
-- Prefer crisp definitions, key points, and labeled steps
-- For Chemistry/Physics: formula → substitution → final answer with units
-- Avoid advanced tricks unless necessary
-""",
+    "CBSE": (
+        "CBSE: prefer NCERT wording, step-wise marking, and units."
+    ),
+    "JEE": (
+        "JEE: be concise, calculation-efficient, and use standard shortcuts only."
+    ),
+    "NEET": (
+        "NEET: prefer NCERT-based points, crisp definitions, and units where needed."
+    ),
 }
 
 
+def _normalize_exam_type(exam_type: str | None) -> str:
+    value = (exam_type or "CBSE").strip().upper()
+    if value not in EXAM_MODE_GUIDE:
+        return "CBSE"
+    return value
+
+
+def _normalize_answer_style(answer_style: str | None) -> str:
+    value = (answer_style or "compact").strip().lower()
+    if value not in ANSWER_STYLE_GUIDE:
+        return "compact"
+    return value
+
+
 def build_prompt(
-    question_text: str, exam_mode: bool, exam_type: str = "CBSE"
+    question_text: str,
+    exam_mode: bool,
+    exam_type: str = "CBSE",
+    answer_style: str = "compact",
 ) -> str:
-    """
-    exam_type: "CBSE" | "JEE" | "NEET"
-    """
+    """Builds a single-turn prompt for exam solving."""
     question_text = (question_text or "").strip()
-    exam_line = "true" if exam_mode else "false"
-    exam_type = (exam_type or "CBSE").strip().upper()
-    if exam_type not in EXAM_MODE_GUIDE:
-        exam_type = "CBSE"
-    mode_block = EXAM_MODE_GUIDE[exam_type] if exam_mode else ""
-    return (
-        f"{SYSTEM_PROMPT}\n\n"
-        f"exam_mode={exam_line}\n"
-        f"exam_type={exam_type}\n\n"
-        f"{mode_block}\n"
-        f"QUESTION:\n{question_text}\n"
+    exam_type = _normalize_exam_type(exam_type)
+    answer_style = _normalize_answer_style(answer_style)
+    mode_line = (
+        "exam mode on: keep steps short and direct." if exam_mode else ""
     )
+    exam_guide = EXAM_MODE_GUIDE[exam_type]
+    style_guide = ANSWER_STYLE_GUIDE[answer_style]
+
+    parts = [
+        SYSTEM_PROMPT,
+        exam_guide,
+        style_guide,
+    ]
+    if mode_line:
+        parts.append(mode_line)
+    parts.append(f"Question:\n{question_text}")
+
+    return "\n\n".join(parts)

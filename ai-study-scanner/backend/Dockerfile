@@ -22,8 +22,8 @@ COPY . /app
 RUN useradd -m appuser
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8080
 
 # Production defaults (override via env if needed)
-# HOST=0.0.0.0 PORT=8000 LOG_LEVEL=info
-CMD ["sh", "-c", "uvicorn backend.main:app --host ${HOST:-0.0.0.0} --port ${PORT:-8000} --log-level ${LOG_LEVEL:-info} --access-log"]
+# HOST=0.0.0.0 PORT=8080 LOG_LEVEL=info
+CMD ["sh", "-c", "uvicorn main:app --host ${HOST:-0.0.0.0} --port ${PORT:-8080} --log-level ${LOG_LEVEL:-info} --access-log"]

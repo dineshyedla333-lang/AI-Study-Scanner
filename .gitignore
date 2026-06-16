@@ -47,3 +47,7 @@ Thumbs.db
 
 # Local Gradle distribution zip (too large for GitHub)
 android-app/AIStudyScanner/gradle-8.10.2-bin.zip
+
+# Local machine config — never commit
+local.properties
+android-app/AIStudyScanner/.gradle/
