@@ -12,7 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,7 +60,7 @@ fun HistoryScreen(onBack: () -> Unit) {
                     if (state.items.isNotEmpty()) {
                         TextButton(onClick = vm::clearHistory) {
                             Icon(
-                                imageVector = Icons.Default.DeleteSweep,
+                                imageVector = Icons.Default.Delete,
                                 contentDescription = "Clear history",
                             )
                             Text(

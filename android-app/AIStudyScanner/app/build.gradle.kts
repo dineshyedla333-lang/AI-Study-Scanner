@@ -116,6 +116,8 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
+    implementation(libs.androidx.concurrent.futures)
+    implementation("com.google.guava:guava:33.0.0-android")
 
     // ML Kit OCR (optional but recommended for extracting question text from scan)
     implementation(libs.mlkit.text.recognition)

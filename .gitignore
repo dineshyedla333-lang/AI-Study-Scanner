@@ -51,3 +51,7 @@ android-app/AIStudyScanner/gradle-8.10.2-bin.zip
 # Local machine config — never commit
 local.properties
 android-app/AIStudyScanner/.gradle/
+
+# Android release keystore — never commit private keys
+*.keystore
+*.jks
