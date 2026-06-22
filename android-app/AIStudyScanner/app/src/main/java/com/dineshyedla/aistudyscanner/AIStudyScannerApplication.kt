@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner
+package com.aistudyscanner.agent
 
 import android.app.Application
 import io.sentry.android.core.SentryAndroid

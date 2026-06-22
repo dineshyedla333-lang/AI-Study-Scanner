@@ -1,15 +1,15 @@
-package com.dineshyedla.aistudyscanner
+package com.aistudyscanner.agent
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.dineshyedla.aistudyscanner.navigation.Routes
-import com.dineshyedla.aistudyscanner.screens.ExplainScreen
-import com.dineshyedla.aistudyscanner.screens.HistoryScreen
-import com.dineshyedla.aistudyscanner.screens.HomeScreen
-import com.dineshyedla.aistudyscanner.screens.ScannerScreen
-import com.dineshyedla.aistudyscanner.screens.SolutionScreen
+import com.aistudyscanner.agent.navigation.Routes
+import com.aistudyscanner.agent.screens.ExplainScreen
+import com.aistudyscanner.agent.screens.HistoryScreen
+import com.aistudyscanner.agent.screens.HomeScreen
+import com.aistudyscanner.agent.screens.ScannerScreen
+import com.aistudyscanner.agent.screens.SolutionScreen
 
 @Composable
 fun AIStudyScannerApp() {

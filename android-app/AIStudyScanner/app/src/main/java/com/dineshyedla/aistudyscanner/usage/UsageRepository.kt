@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner.usage
+package com.aistudyscanner.agent.usage
 
 import android.content.Context
 import com.google.firebase.auth.FirebaseAuth
@@ -11,9 +11,11 @@ import java.time.ZoneId
 data class UsageStatus(
     val usedToday: Int,
     val limitPerDay: Int,
+    val consumedInThisCall: Boolean,
 ) {
     val remainingToday: Int get() = (limitPerDay - usedToday).coerceAtLeast(0)
-    val isAllowed: Boolean get() = usedToday < limitPerDay
+    val isAllowed: Boolean get() = consumedInThisCall || usedToday < limitPerDay
+    val limitReached: Boolean get() = usedToday >= limitPerDay
 }
 
 /**
@@ -47,7 +49,7 @@ class UsageRepository(
     /**
      * Atomically increments today's usage counter in Firestore.
      *
-     * Returns updated UsageStatus (after increment).
+     * Returns updated UsageStatus (after increment attempt).
      * If limit is already reached, it DOES NOT increment and returns current status.
      */
     suspend fun tryConsumeOne(context: Context): UsageStatus {
@@ -63,6 +65,7 @@ class UsageRepository(
                 return@runTransaction UsageStatus(
                     usedToday = current,
                     limitPerDay = limitPerDay,
+                    consumedInThisCall = false,
                 )
             }
 
@@ -76,7 +79,11 @@ class UsageRepository(
                         "updatedAt" to FieldValue.serverTimestamp(),
                     )
                 )
-                return@runTransaction UsageStatus(usedToday = 1, limitPerDay = limitPerDay)
+                return@runTransaction UsageStatus(
+                    usedToday = 1,
+                    limitPerDay = limitPerDay,
+                    consumedInThisCall = true,
+                )
             }
 
             txn.update(
@@ -86,7 +93,11 @@ class UsageRepository(
                     "updatedAt" to FieldValue.serverTimestamp(),
                 )
             )
-            UsageStatus(usedToday = current + 1, limitPerDay = limitPerDay)
+            UsageStatus(
+                usedToday = current + 1,
+                limitPerDay = limitPerDay,
+                consumedInThisCall = true,
+            )
         }.await()
     }
 }

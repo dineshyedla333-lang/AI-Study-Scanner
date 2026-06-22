@@ -1,32 +1,31 @@
-package com.dineshyedla.aistudyscanner.network
+package com.aistudyscanner.agent.network
 
+import com.aistudyscanner.agent.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    /**
-     * For Android Emulator -> host machine use:
-     *   http://10.0.2.2:8000/
-     *
-     * For real device, replace with your PC IP on same WiFi:
-     *   http://192.168.x.x:8000/
-     */
-    private const val BASE_URL = "http://10.0.2.2:8000/"
+    private val baseUrl: String
+        get() = BuildConfig.API_BASE_URL.trimEnd('/') + "/"
 
     private val okHttp: OkHttpClient by lazy {
-        val logger = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+        if (BuildConfig.DEBUG) {
+            builder.addInterceptor(HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
         }
-        OkHttpClient.Builder()
-            .addInterceptor(logger)
-            .build()
+        builder.build()
     }
 
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(baseUrl)
             .client(okHttp)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

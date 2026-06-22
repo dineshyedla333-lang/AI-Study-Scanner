@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "443750087609",
+    "project_id": "ai-study-scanner-agent",
+    "storage_bucket": "ai-study-scanner-agent.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:443750087609:android:cde1bc8b5938dd731f9468",
+        "android_client_info": {
+          "package_name": "com.aistudyscanner.agent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJGwH8URAT0FP2GBE5-SqQxp3IQX-LEXM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

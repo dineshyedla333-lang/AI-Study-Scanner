@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner.screens
+package com.aistudyscanner.agent.screens
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -30,9 +30,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,15 +51,12 @@ import java.util.concurrent.Executor
 @Composable
 fun ScannerScreen(
     onBack: () -> Unit,
-    onSolved: (String) -> Unit
+    onSolved: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
     var hasCameraPermission by remember { mutableStateOf(hasPermission(context)) }
 
-    // NOTE: For simplicity, we ask user to grant permission from system dialog.
-    // In production, use Accompanist Permissions or ActivityResult API wrapper.
     LaunchedEffect(Unit) {
         hasCameraPermission = hasPermission(context)
     }
@@ -72,7 +69,7 @@ fun ScannerScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
             )
         }
     ) { padding ->
@@ -82,27 +79,27 @@ fun ScannerScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text("Camera permission is required to scan questions.")
-                Text("Grant camera permission in Settings → Apps → AIStudyScanner → Permissions.")
+                Text("Grant camera permission in Settings → Apps → Permissions.")
             }
             return@Scaffold
         }
 
         val imageCapture = remember { ImageCapture.Builder().build() }
-        val executor = remember { ContextCompat.getMainExecutor(context) }
+        val executor: Executor = remember { ContextCompat.getMainExecutor(context) }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             CameraPreview(
                 modifier = Modifier.fillMaxSize(),
                 context = context,
                 lifecycleOwner = lifecycleOwner,
-                imageCapture = imageCapture
+                imageCapture = imageCapture,
             )
 
             Row(
@@ -110,29 +107,20 @@ fun ScannerScreen(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Button(onClick = { onSolved("") }) {
-                    Text("Skip")
-                }
-
+                Button(onClick = { onSolved("") }) { Text("Skip") }
                 Button(
                     onClick = {
                         capturePhoto(
                             context = context,
                             imageCapture = imageCapture,
                             executor = executor,
-                            onTextExtracted = { extracted ->
-                                onSolved(extracted)
-                            },
-                            onError = {
-                                onSolved("")
-                            }
+                            onTextExtracted = { onSolved(it) },
+                            onError = { onSolved("") },
                         )
                     }
-                ) {
-                    Text("Capture")
-                }
+                ) { Text("Capture") }
             }
         }
     }
@@ -147,45 +135,45 @@ private fun CameraPreview(
     modifier: Modifier,
     context: Context,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
-    imageCapture: ImageCapture
+    imageCapture: ImageCapture,
 ) {
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            PreviewView(ctx).apply {
-                scaleType = PreviewView.ScaleType.FILL_CENTER
-            }
-        },
-        update = { previewView ->
-            val cameraProvider = cameraProviderFuture.get()
-
-            val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(previewView.surfaceProvider)
-            }
-
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-            try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview,
-                    imageCapture
-                )
-            } catch (_: Exception) {
-                // no-op for now
-            }
-
-            DisposableEffect(Unit) {
-                onDispose {
-                    cameraProvider.unbindAll()
-                }
-            }
+    val previewView = remember {
+        PreviewView(context).apply {
+            scaleType = PreviewView.ScaleType.FILL_CENTER
         }
-    )
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val executor: Executor = ContextCompat.getMainExecutor(context)
+        var cameraProvider: ProcessCameraProvider? = null
+        // Type inferred from Java return type — no explicit ListenableFuture import needed
+        val future = ProcessCameraProvider.getInstance(context)
+
+        future.addListener(
+            {
+                runCatching {
+                    cameraProvider = future.get()
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+                    cameraProvider?.unbindAll()
+                    cameraProvider?.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview,
+                        imageCapture,
+                    )
+                }
+            },
+            executor,
+        )
+
+        onDispose {
+            runCatching { cameraProvider?.unbindAll() }
+        }
+    }
+
+    AndroidView(factory = { previewView }, modifier = modifier)
 }
 
 @SuppressLint("RestrictedApi")
@@ -194,30 +182,21 @@ private fun capturePhoto(
     imageCapture: ImageCapture,
     executor: Executor,
     onTextExtracted: (String) -> Unit,
-    onError: (Exception) -> Unit
+    onError: (Exception) -> Unit,
 ) {
-    val outputDir = context.cacheDir
-    val file = File(outputDir, "scan_${System.currentTimeMillis()}.jpg")
+    val file = File(context.cacheDir, "scan_${System.currentTimeMillis()}.jpg")
     val outputOptions = ImageCapture.OutputFileOptions.Builder(file).build()
 
     imageCapture.takePicture(
         outputOptions,
         executor,
         object : ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                val savedUri: Uri = outputFileResults.savedUri ?: Uri.fromFile(file)
-                runOcr(
-                    context = context,
-                    imageUri = savedUri,
-                    onTextExtracted = onTextExtracted,
-                    onError = onError
-                )
+            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                val uri: Uri = output.savedUri ?: Uri.fromFile(file)
+                runOcr(context, uri, onTextExtracted, onError)
             }
-
-            override fun onError(exception: ImageCaptureException) {
-                onError(exception)
-            }
-        }
+            override fun onError(exception: ImageCaptureException) = onError(exception)
+        },
     )
 }
 
@@ -225,20 +204,14 @@ private fun runOcr(
     context: Context,
     imageUri: Uri,
     onTextExtracted: (String) -> Unit,
-    onError: (Exception) -> Unit
+    onError: (Exception) -> Unit,
 ) {
     try {
         val image = InputImage.fromFilePath(context, imageUri)
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-
-        recognizer
-            .process(image)
-            .addOnSuccessListener { visionText ->
-                onTextExtracted(visionText.text.orEmpty().trim())
-            }
-            .addOnFailureListener { e ->
-                onError(e)
-            }
+        recognizer.process(image)
+            .addOnSuccessListener { onTextExtracted(it.text.orEmpty().trim()) }
+            .addOnFailureListener { onError(it) }
     } catch (e: Exception) {
         onError(e)
     }
