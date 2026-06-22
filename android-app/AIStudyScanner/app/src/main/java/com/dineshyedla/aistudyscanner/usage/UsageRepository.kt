@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner.usage
+package com.aistudyscanner.agent.usage
 
 import android.content.Context
 import com.google.firebase.auth.FirebaseAuth

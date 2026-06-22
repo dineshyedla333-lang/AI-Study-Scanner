@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner
+package com.aistudyscanner.agent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent

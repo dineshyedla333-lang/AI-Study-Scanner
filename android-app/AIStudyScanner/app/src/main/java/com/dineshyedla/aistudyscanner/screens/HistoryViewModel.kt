@@ -1,10 +1,10 @@
-package com.dineshyedla.aistudyscanner.screens
+package com.aistudyscanner.agent.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.dineshyedla.aistudyscanner.history.HistoryRepository
-import com.dineshyedla.aistudyscanner.history.SolvedQuestionEntity
+import com.aistudyscanner.agent.history.HistoryRepository
+import com.aistudyscanner.agent.history.SolvedQuestionEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

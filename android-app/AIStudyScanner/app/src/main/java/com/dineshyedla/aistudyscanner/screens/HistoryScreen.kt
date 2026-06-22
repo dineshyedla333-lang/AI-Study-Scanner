@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner.screens
+package com.aistudyscanner.agent.screens
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
@@ -33,8 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.dineshyedla.aistudyscanner.history.HistoryRepository
-import com.dineshyedla.aistudyscanner.history.SolvedQuestionEntity
+import com.aistudyscanner.agent.history.HistoryRepository
+import com.aistudyscanner.agent.history.SolvedQuestionEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

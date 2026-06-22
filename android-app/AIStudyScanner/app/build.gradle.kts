@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.dineshyedla.aistudyscanner"
+    namespace = "com.aistudyscanner.agent"
     compileSdk = 35
 
     val apiBaseUrl =
@@ -18,7 +18,7 @@ android {
     val releaseVersionName = project.findProperty("RELEASE_VERSION_NAME")?.toString() ?: "1.0.0"
 
     defaultConfig {
-        applicationId = "com.dineshyedla.aistudyscanner"
+        applicationId = "com.aistudyscanner.agent"
         minSdk = 24
         targetSdk = 35
         versionCode = releaseVersionCode
@@ -58,8 +58,6 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
             isMinifyEnabled = false
             buildConfigField("String", "APP_ENV", "\"debug\"")
             buildConfigField("boolean", "ALLOW_CLEARTEXT", "true")

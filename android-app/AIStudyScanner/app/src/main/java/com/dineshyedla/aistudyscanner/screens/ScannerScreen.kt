@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner.screens
+package com.aistudyscanner.agent.screens
 
 import android.Manifest
 import android.annotation.SuppressLint

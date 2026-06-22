@@ -1,14 +1,14 @@
-package com.dineshyedla.aistudyscanner.screens
+package com.aistudyscanner.agent.screens
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.dineshyedla.aistudyscanner.history.HistoryRepository
-import com.dineshyedla.aistudyscanner.network.AgentStepResponse
-import com.dineshyedla.aistudyscanner.network.ApiClient
-import com.dineshyedla.aistudyscanner.network.SolveRequest
-import com.dineshyedla.aistudyscanner.usage.UsageRepository
-import com.dineshyedla.aistudyscanner.usage.UsageStatus
+import com.aistudyscanner.agent.history.HistoryRepository
+import com.aistudyscanner.agent.network.AgentStepResponse
+import com.aistudyscanner.agent.network.ApiClient
+import com.aistudyscanner.agent.network.SolveRequest
+import com.aistudyscanner.agent.usage.UsageRepository
+import com.aistudyscanner.agent.usage.UsageStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -74,8 +74,8 @@ class SolutionViewModel(
 
                 val resp = ApiClient.api.agentSolve(
                     SolveRequest(
-                        question = question,
-                        mode = _uiState.value.examMode,
+                        question_text = question,
+                        exam_mode = _uiState.value.examMode,
                     )
                 )
 

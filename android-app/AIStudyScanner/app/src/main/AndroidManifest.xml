@@ -13,6 +13,9 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.AIStudyScanner">
+
+        <!-- Disable Sentry auto-init so AIStudyScannerApplication controls it (only when DSN is set) -->
+        <meta-data android:name="io.sentry.auto-init" android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

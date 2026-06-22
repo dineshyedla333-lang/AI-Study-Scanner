@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner.screens
+package com.aistudyscanner.agent.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -49,7 +49,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.dineshyedla.aistudyscanner.network.AgentStepResponse
+import com.aistudyscanner.agent.network.AgentStepResponse
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

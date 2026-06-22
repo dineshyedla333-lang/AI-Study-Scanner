@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" ry="80" fill="url(#bgGrad)"/>
+
+  <!-- Camera body -->
+  <rect x="126" y="145" width="260" height="185" rx="30" ry="30" fill="none" stroke="#e8e8ff" stroke-width="18"/>
+
+  <!-- Camera viewfinder bump -->
+  <rect x="200" y="115" width="100" height="40" rx="12" ry="12" fill="none" stroke="#e8e8ff" stroke-width="18"/>
+
+  <!-- Camera lens outer ring -->
+  <circle cx="256" cy="238" r="60" fill="none" stroke="#e8e8ff" stroke-width="16"/>
+
+  <!-- Camera lens filled -->
+  <circle cx="256" cy="238" r="38" fill="#4a90d9"/>
+  <circle cx="256" cy="238" r="18" fill="#ffffff" opacity="0.9"/>
+
+  <!-- Flash dot -->
+  <circle cx="348" cy="178" r="11" fill="#e8e8ff"/>
+
+  <!-- Gold sparkle stars (top right) -->
+  <line x1="375" y1="100" x2="375" y2="140" stroke="#FFD700" stroke-width="6" stroke-linecap="round"/>
+  <line x1="355" y1="120" x2="395" y2="120" stroke="#FFD700" stroke-width="6" stroke-linecap="round"/>
+  <line x1="362" y1="107" x2="388" y2="133" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+  <line x1="388" y1="107" x2="362" y2="133" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+  <line x1="410" y1="148" x2="410" y2="168" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+  <line x1="400" y1="158" x2="420" y2="158" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Gold AI badge background pill -->
+  <rect x="148" y="365" width="216" height="78" rx="39" ry="39" fill="#FFD700"/>
+
+  <!-- Letter A centered at x=215 -->
+  <polygon points="191,431 213,375 219,375 243,431 233,431 216,383 199,431" fill="#1a1a2e"/>
+  <rect x="201" y="408" width="30" height="9" fill="#1a1a2e"/>
+
+  <!-- Letter I moved closer to A -->
+  <rect x="256" y="375" width="42" height="9" rx="4" fill="#1a1a2e"/>
+  <rect x="272" y="375" width="10" height="56" fill="#1a1a2e"/>
+  <rect x="256" y="422" width="42" height="9" rx="4" fill="#1a1a2e"/>
+
+</svg>

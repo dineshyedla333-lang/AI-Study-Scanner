@@ -1,11 +1,11 @@
-package com.dineshyedla.aistudyscanner.network
+package com.aistudyscanner.agent.network
 
 import retrofit2.http.Body
 import retrofit2.http.POST
 
 data class SolveRequest(
-    val question: String,
-    val mode: Boolean,
+    val question_text: String,
+    val exam_mode: Boolean,
 )
 
 data class SolveResponse(

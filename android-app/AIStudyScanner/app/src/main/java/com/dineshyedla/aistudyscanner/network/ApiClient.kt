@@ -1,6 +1,6 @@
-package com.dineshyedla.aistudyscanner.network
+package com.aistudyscanner.agent.network
 
-import com.dineshyedla.aistudyscanner.BuildConfig
+import com.aistudyscanner.agent.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit

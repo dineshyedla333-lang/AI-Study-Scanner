@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner.history
+package com.aistudyscanner.agent.history
 
 import android.content.Context
 import androidx.room.Database

@@ -1,4 +1,4 @@
-package com.dineshyedla.aistudyscanner.navigation
+package com.aistudyscanner.agent.navigation
 
 object Routes {
     const val HOME = "home"
