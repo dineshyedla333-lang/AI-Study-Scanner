@@ -16,6 +16,7 @@ import os
 from typing import Literal
 
 from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
@@ -130,6 +131,8 @@ async def unhandled_exception_handler(
     request: Request,
     exc: Exception,
 ) -> JSONResponse:
+    if isinstance(exc, HTTPException):
+        return await http_exception_handler(request, exc)
     logger.exception("Unhandled error", extra={"path": str(request.url.path)})
     return JSONResponse(
         status_code=500,
