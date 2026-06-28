@@ -15,7 +15,7 @@ import logging
 import os
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
@@ -139,7 +139,7 @@ async def unhandled_exception_handler(
 
 @app.post("/solve", response_model=SolveResponse)
 @limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "10/minute"))
-def solve_endpoint(request: Request, req: SolveRequest) -> SolveResponse:
+def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveResponse:
     question_text, exam_mode = req.normalized()
     if not question_text:
         raise HTTPException(
@@ -219,7 +219,7 @@ def solve_endpoint(request: Request, req: SolveRequest) -> SolveResponse:
 @app.post("/solve/agent", response_model=AgenticSolveResponse)
 @limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "10/minute"))
 def agent_solve_endpoint(
-    request: Request, req: SolveRequest
+    request: Request, req: SolveRequest = Body()
 ) -> AgenticSolveResponse:
     question_text, exam_mode = req.normalized()
     if not question_text:
