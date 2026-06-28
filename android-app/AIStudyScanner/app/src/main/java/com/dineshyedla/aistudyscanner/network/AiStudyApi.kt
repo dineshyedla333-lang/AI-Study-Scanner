@@ -1,32 +1,33 @@
 package com.aistudyscanner.agent.network
 
+import com.google.gson.annotations.SerializedName
 import retrofit2.http.Body
 import retrofit2.http.POST
 
 data class SolveRequest(
-    val question_text: String,
-    val exam_mode: Boolean,
+    @SerializedName("question_text") val question_text: String,
+    @SerializedName("exam_mode") val exam_mode: Boolean,
 )
 
 data class SolveResponse(
-    val provider: String,
-    val model: String,
-    val answer: String,
-    val latency_ms: Int,
+    @SerializedName("provider") val provider: String,
+    @SerializedName("model") val model: String,
+    @SerializedName("answer") val answer: String,
+    @SerializedName("latency_ms") val latency_ms: Int,
 )
 
 data class AgentStepResponse(
-    val name: String,
-    val output: String,
-    val latency_ms: Int,
+    @SerializedName("name") val name: String,
+    @SerializedName("output") val output: String,
+    @SerializedName("latency_ms") val latency_ms: Int,
 )
 
 data class AgenticSolveResponse(
-    val provider: String,
-    val model: String,
-    val steps: List<AgentStepResponse>,
-    val answer: String,
-    val total_latency_ms: Int,
+    @SerializedName("provider") val provider: String,
+    @SerializedName("model") val model: String,
+    @SerializedName("steps") val steps: List<AgentStepResponse>,
+    @SerializedName("answer") val answer: String,
+    @SerializedName("total_latency_ms") val total_latency_ms: Int,
 )
 
 interface AiStudyApi {
