@@ -17,7 +17,7 @@ class Settings:
 
     # Gemini
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-2.0-flash"
     gemini_timeout_s: float = 30.0
     gemini_temperature_exam: float = 0.2
     gemini_temperature_default: float = 0.35
@@ -46,7 +46,7 @@ def load_settings() -> Settings:
         log_level=os.getenv("LOG_LEVEL", Settings.log_level),
         env=os.getenv("ENV", Settings.env),
         gemini_api_key=os.getenv("GEMINI_API_KEY"),
-        gemini_model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+        gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
         gemini_timeout_s=float(os.getenv("GEMINI_TIMEOUT_S", "30.0")),
         gemini_temperature_exam=float(
             os.getenv("GEMINI_TEMPERATURE_EXAM", "0.2")
