@@ -99,7 +99,7 @@ class SolveRequest(BaseModel):
 
 
 class SolveResponse(BaseModel):
-    provider: Literal["gemini"]
+    provider: Literal["groq"]
     model: str
     answer: str
     latency_ms: int
@@ -112,7 +112,7 @@ class AgentStepResponse(BaseModel):
 
 
 class AgenticSolveResponse(BaseModel):
-    provider: Literal["gemini"]
+    provider: Literal["groq"]
     model: str
     steps: list[AgentStepResponse]
     answer: str
