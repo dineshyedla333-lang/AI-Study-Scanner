@@ -123,7 +123,7 @@ class AgenticSolveResponse(BaseModel):
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "app": settings.app_name, "env": settings.env}
+    return {"status": "ok", "app": settings.app_name, "env": settings.env, "v": "3"}
 
 
 @app.exception_handler(Exception)
