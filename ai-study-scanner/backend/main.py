@@ -170,7 +170,7 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
             },
         )
         return SolveResponse(
-            provider="gemini",
+            provider="groq",
             model=cached_result.model,
             answer=cached_result.answer,
             latency_ms=cached_result.latency_ms,
@@ -210,7 +210,7 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
     )
 
     return SolveResponse(
-        provider="gemini",
+        provider="groq",
         model=result.model,
         answer=result.answer,
         latency_ms=result.latency_ms,
@@ -237,7 +237,7 @@ def agent_solve_endpoint(
             extra={"cache_hit": True, "question_chars": len(question_text)},
         )
         return AgenticSolveResponse(
-            provider="gemini",
+            provider="groq",
             model=cached.model,
             steps=[
                 AgentStepResponse(
@@ -277,7 +277,7 @@ def agent_solve_endpoint(
     )
 
     return AgenticSolveResponse(
-        provider="gemini",
+        provider="groq",
         model=result.model,
         steps=[
             AgentStepResponse(
