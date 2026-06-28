@@ -111,6 +111,7 @@ class SolutionViewModel(
                     SolveRequest(
                         question_text = question,
                         exam_mode = _uiState.value.examMode,
+                        board = _uiState.value.examBoard,
                     )
                 )
 

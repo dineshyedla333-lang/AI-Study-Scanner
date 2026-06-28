@@ -7,7 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,12 +34,15 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onScanQuestion: (examMode: Boolean) -> Unit,
-    onUploadScreenshot: (examMode: Boolean) -> Unit,
+    onScanQuestion: (examMode: Boolean, board: String) -> Unit,
+    onUploadScreenshot: (examMode: Boolean, board: String) -> Unit,
+    onHomework: (examMode: Boolean, board: String) -> Unit,
+    onNewsAgent: () -> Unit,
     onExplainPage: () -> Unit,
     onHistory: () -> Unit,
 ) {
     var examMode by remember { mutableStateOf(true) }
+    var board by remember { mutableStateOf(BOARD_OPTIONS.first()) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("AI Study Scan Agent") }) }
@@ -45,7 +51,8 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Exam Mode toggle card
@@ -81,10 +88,16 @@ fun HomeScreen(
                 }
             }
 
+            // Exam board selector
+            BoardSelector(
+                board = board,
+                onBoardChange = { board = it },
+            )
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             Button(
-                onClick = { onScanQuestion(examMode) },
+                onClick = { onScanQuestion(examMode, board) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
             ) {
@@ -92,11 +105,37 @@ fun HomeScreen(
             }
 
             Button(
-                onClick = { onUploadScreenshot(examMode) },
+                onClick = { onUploadScreenshot(examMode, board) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
             ) {
                 Text("Upload from Gallery")
+            }
+
+            // Home Work — generate practice questions to solve yourself
+            Button(
+                onClick = { onHomework(examMode, board) },
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary,
+                ),
+            ) {
+                Text("Home Work — Practice Questions")
+            }
+
+            // UPSC Live Agent — daily current-affairs push
+            Button(
+                onClick = onNewsAgent,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                ),
+            ) {
+                Text("UPSC Live Agent — Daily Current Affairs")
             }
 
             OutlinedButton(

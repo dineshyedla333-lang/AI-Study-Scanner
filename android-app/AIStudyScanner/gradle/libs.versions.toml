@@ -60,6 +60,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
 
 sentry-android = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" }
 

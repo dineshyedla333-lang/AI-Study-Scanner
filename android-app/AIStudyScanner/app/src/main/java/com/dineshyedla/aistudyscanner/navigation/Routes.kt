@@ -6,4 +6,6 @@ object Routes {
     const val SOLUTION = "solution"
     const val HISTORY = "history"
     const val EXPLAIN = "explain"
+    const val HOMEWORK = "homework"
+    const val NEWS_AGENT = "news_agent"
 }

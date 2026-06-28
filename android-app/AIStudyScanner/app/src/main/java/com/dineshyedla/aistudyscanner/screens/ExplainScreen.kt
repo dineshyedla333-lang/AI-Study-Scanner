@@ -98,6 +98,51 @@ fun ExplainScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
+                        text = "Home Work — Practice Yourself",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Tap 'Home Work' on the home screen, type a topic and pick how many questions (5–20). " +
+                            "The AI creates practice questions for your board. Solve them on paper, then tap " +
+                            "'Show Answer' on each — or 'Reveal all answers' — to check your work.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "UPSC Live Agent — Daily Current Affairs",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Open 'UPSC Live Agent', pick up to two times of day and turn it on. " +
+                            "You'll get a daily notification with fresh current-affairs questions and " +
+                            "answers built from today's news. Tap 'Preview today's questions' to see a " +
+                            "sample right away. (Allow notifications when asked.)",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
                         text = "Daily Free Limit",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,

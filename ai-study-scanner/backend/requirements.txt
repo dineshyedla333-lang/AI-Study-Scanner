@@ -6,3 +6,4 @@ groq==1.5.0
 prometheus-fastapi-instrumentator==7.0.2
 slowapi==0.1.9
 sentry-sdk==2.22.0
+firebase-admin==6.5.0
