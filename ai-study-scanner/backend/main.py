@@ -189,7 +189,7 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
         logger.exception("Solve failed")
         raise HTTPException(
             status_code=502,
-            detail="Upstream AI provider error",
+            detail=f"Upstream AI provider error: {e}",
         ) from e
 
     solve_cache.set(key, result)
@@ -261,7 +261,7 @@ def agent_solve_endpoint(
         logger.exception("Agent solve failed")
         raise HTTPException(
             status_code=502,
-            detail="Upstream AI provider error",
+            detail=f"Upstream AI provider error: {e}",
         ) from e
 
     solve_cache.set(key, result)
