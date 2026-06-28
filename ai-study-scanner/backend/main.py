@@ -9,8 +9,6 @@ Or run directly with env python (no activation needed):
   cmd /c ""C:\\Users\\dines\\anaconda3\\envs\\ai_study_scanner\\python.exe" ^
     -m uvicorn main:app --reload"
 """
-from __future__ import annotations
-
 import logging
 import os
 from typing import Literal
