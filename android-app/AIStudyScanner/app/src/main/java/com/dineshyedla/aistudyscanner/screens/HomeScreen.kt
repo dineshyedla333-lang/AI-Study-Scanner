@@ -44,7 +44,7 @@ fun HomeScreen(
     val boards = listOf("Auto", "JEE", "NEET", "CBSE", "TS EAMCET", "Board")
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("AI Study Scanner") }) }
+        topBar = { TopAppBar(title = { Text("AI Study Scan Agent") }) }
     ) { padding ->
         Column(
             modifier = Modifier
