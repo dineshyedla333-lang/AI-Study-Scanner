@@ -7,13 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -34,14 +31,12 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onScanQuestion: (examMode: Boolean, board: String) -> Unit,
-    onUploadScreenshot: (examMode: Boolean, board: String) -> Unit,
+    onScanQuestion: (examMode: Boolean) -> Unit,
+    onUploadScreenshot: (examMode: Boolean) -> Unit,
     onExplainPage: () -> Unit,
     onHistory: () -> Unit,
 ) {
     var examMode by remember { mutableStateOf(true) }
-    var selectedBoard by remember { mutableStateOf("Auto") }
-    val boards = listOf("Auto", "JEE", "NEET", "CBSE", "TS EAMCET", "Board")
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("AI Study Scan Agent") }) }
@@ -86,26 +81,10 @@ fun HomeScreen(
                 }
             }
 
-            // Exam Board selector
-            Text(
-                text = "Exam Board",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(boards) { board ->
-                    FilterChip(
-                        selected = selectedBoard == board,
-                        onClick = { selectedBoard = board },
-                        label = { Text(board) },
-                    )
-                }
-            }
-
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             Button(
-                onClick = { onScanQuestion(examMode, selectedBoard) },
+                onClick = { onScanQuestion(examMode) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
             ) {
@@ -113,7 +92,7 @@ fun HomeScreen(
             }
 
             Button(
-                onClick = { onUploadScreenshot(examMode, selectedBoard) },
+                onClick = { onUploadScreenshot(examMode) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
             ) {

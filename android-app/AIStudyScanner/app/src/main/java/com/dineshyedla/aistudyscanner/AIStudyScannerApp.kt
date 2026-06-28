@@ -29,7 +29,6 @@ fun AIStudyScannerApp() {
     // State for gallery result — set by launcher, consumed by LaunchedEffect
     var pendingOcrText by remember { mutableStateOf<String?>(null) }
     var pendingExamMode by remember { mutableStateOf(true) }
-    var pendingBoard by remember { mutableStateOf("Auto") }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -50,7 +49,6 @@ fun AIStudyScannerApp() {
             navController.currentBackStackEntry?.savedStateHandle?.apply {
                 set("extracted_text", text)
                 set("exam_mode", pendingExamMode)
-                set("board", pendingBoard)
             }
             navController.navigate(Routes.SOLUTION)
             pendingOcrText = null
@@ -61,16 +59,14 @@ fun AIStudyScannerApp() {
 
         composable(Routes.HOME) {
             HomeScreen(
-                onScanQuestion = { examMode, board ->
+                onScanQuestion = { examMode ->
                     navController.currentBackStackEntry?.savedStateHandle?.apply {
                         set("exam_mode", examMode)
-                        set("board", board)
                     }
                     navController.navigate(Routes.SCANNER)
                 },
-                onUploadScreenshot = { examMode, board ->
+                onUploadScreenshot = { examMode ->
                     pendingExamMode = examMode
-                    pendingBoard = board
                     galleryLauncher.launch("image/*")
                 },
                 onExplainPage = { navController.navigate(Routes.EXPLAIN) },
@@ -81,15 +77,12 @@ fun AIStudyScannerApp() {
         composable(Routes.SCANNER) {
             val examMode = navController.previousBackStackEntry
                 ?.savedStateHandle?.get<Boolean>("exam_mode") ?: true
-            val board = navController.previousBackStackEntry
-                ?.savedStateHandle?.get<String>("board") ?: "Auto"
             ScannerScreen(
                 onBack = { navController.popBackStack() },
                 onSolved = { extractedText ->
                     navController.currentBackStackEntry?.savedStateHandle?.apply {
                         set("extracted_text", extractedText)
                         set("exam_mode", examMode)
-                        set("board", board)
                     }
                     navController.navigate(Routes.SOLUTION)
                 },
@@ -101,13 +94,10 @@ fun AIStudyScannerApp() {
                 ?.savedStateHandle?.get<String>("extracted_text") ?: ""
             val examMode = navController.previousBackStackEntry
                 ?.savedStateHandle?.get<Boolean>("exam_mode") ?: true
-            val board = navController.previousBackStackEntry
-                ?.savedStateHandle?.get<String>("board") ?: "Auto"
             SolutionScreen(
                 onBack = { navController.popBackStack() },
                 extractedText = extractedText,
                 initialExamMode = examMode,
-                board = board,
             )
         }
 
