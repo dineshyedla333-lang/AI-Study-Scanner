@@ -588,9 +588,9 @@ def unsubscribe_endpoint(
     return SimpleStatus(status="ok", detail="Unsubscribed from Live Agent.")
 
 
-@app.post("/cron/dispatch")
+@app.api_route("/cron/dispatch", methods=["GET", "POST"])
 def cron_dispatch(request: Request, key: str | None = None) -> dict:
-    """Protected: an external cron (or Render cron) calls this every ~15 min.
+    """Protected: an external cron calls this every ~15 min (GET or POST).
 
     Auth via ?key=... or the X-Cron-Key header, matched against CRON_SECRET.
     """
