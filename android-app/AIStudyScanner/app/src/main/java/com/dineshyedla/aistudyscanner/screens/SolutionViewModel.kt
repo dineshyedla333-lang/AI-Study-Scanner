@@ -8,6 +8,7 @@ import com.aistudyscanner.agent.network.AgentStepResponse
 import com.aistudyscanner.agent.network.ApiClient
 import com.aistudyscanner.agent.network.SolveRequest
 import com.aistudyscanner.agent.usage.UsageRepository
+import retrofit2.HttpException
 import com.aistudyscanner.agent.usage.UsageStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -91,11 +92,18 @@ class SolutionViewModel(
                     agentSteps = resp.steps,
                     answer = resp.answer,
                 )
+            } catch (e: HttpException) {
+                val detail = e.response()?.errorBody()?.string() ?: e.message()
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    currentAgentStep = "",
+                    error = "HTTP ${e.code()}: $detail",
+                )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     currentAgentStep = "",
-                    error = (e.message ?: "Network/Firebase error"),
+                    error = (e.message ?: "Network error"),
                 )
             }
         }
