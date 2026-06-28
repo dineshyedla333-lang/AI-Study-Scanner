@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -31,7 +33,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -44,7 +49,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -56,13 +63,18 @@ import com.aistudyscanner.agent.network.AgentStepResponse
 fun SolutionScreen(
     onBack: () -> Unit,
     extractedText: String,
+    initialExamMode: Boolean = true,
+    board: String = "Auto",
     vm: SolutionViewModel = viewModel(),
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val state by vm.uiState.collectAsState()
 
     LaunchedEffect(extractedText) {
         vm.setQuestion(extractedText)
+        vm.setExamMode(initialExamMode)
+        vm.setExamBoard(board)
         if (extractedText.isNotBlank()) {
             vm.solve(context)
         }
@@ -91,33 +103,25 @@ fun SolutionScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
-            // Extracted question
+            // Editable question text — user can fix OCR mistakes
             Text(
                 text = "Question",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            Card(
+            OutlinedTextField(
+                value = state.extractedText,
+                onValueChange = { vm.setQuestion(it) },
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-            ) {
-                Text(
-                    text = if (state.extractedText.isBlank())
-                        "(No text extracted yet)"
-                    else
-                        state.extractedText,
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+                label = { Text("Tap to edit if scanner made mistakes") },
+                minLines = 3,
+                maxLines = 8,
+            )
 
             // Usage quota
             state.usage?.let { usage ->
                 Text(
-                    text = "Free today: ${usage.usedToday}/${usage.limitPerDay}" +
-                        " · ${usage.remainingToday} remaining",
+                    text = "Free today: ${usage.usedToday}/${usage.limitPerDay} · ${usage.remainingToday} remaining",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -155,16 +159,43 @@ fun SolutionScreen(
                 )
             }
 
-            // Agent steps (collapsible cards)
+            // AI-detected info chips (subject / difficulty / board)
+            val detected = state.detected
+            val chips = listOfNotNull(
+                detected.subject.takeIf { it.isNotEmpty() },
+                detected.difficulty.takeIf { it.isNotEmpty() },
+                detected.examBoard.takeIf { it.isNotEmpty() },
+            )
+            if (chips.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Detected",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(chips) { chip ->
+                            SuggestionChip(onClick = {}, label = { Text(chip) })
+                        }
+                    }
+                    if (detected.topic.isNotEmpty()) {
+                        Text(
+                            text = "Topic: ${detected.topic}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            // Agent reasoning steps (collapsible)
             if (state.agentSteps.isNotEmpty()) {
                 Text(
                     text = "Agent Reasoning",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
-                state.agentSteps.forEach { step ->
-                    AgentStepCard(step = step)
-                }
+                state.agentSteps.forEach { step -> AgentStepCard(step = step) }
             }
 
             // Final answer
@@ -187,6 +218,25 @@ fun SolutionScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         fontFamily = FontFamily.Monospace,
                     )
+                }
+
+                // Share + Copy buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = { vm.shareAnswer(context) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Share")
+                    }
+                    OutlinedButton(
+                        onClick = { clipboard.setText(AnnotatedString(ans)) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Copy")
+                    }
                 }
             }
 
@@ -227,10 +277,7 @@ private fun AgentStepCard(step: AgentStepResponse) {
                     )
                 }
                 Icon(
-                    imageVector = if (expanded)
-                        Icons.Default.KeyboardArrowUp
-                    else
-                        Icons.Default.KeyboardArrowDown,
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = if (expanded) "Collapse" else "Expand",
                 )
             }
