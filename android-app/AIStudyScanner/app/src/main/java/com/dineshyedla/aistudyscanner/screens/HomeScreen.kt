@@ -28,8 +28,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
+// Distinct, theme-friendly colors for the four main actions (white text on each).
+private val ScanColor = Color(0xFF6750A4) // brand purple
+private val UploadColor = Color(0xFF1565C0) // blue
+private val HomeworkColor = Color(0xFF2E7D32) // green
+private val NewsColor = Color(0xFFEF6C00) // orange (current affairs)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,6 +107,10 @@ fun HomeScreen(
                 onClick = { onScanQuestion(examMode, board) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ScanColor,
+                    contentColor = Color.White,
+                ),
             ) {
                 Text("Scan Question")
             }
@@ -108,6 +119,10 @@ fun HomeScreen(
                 onClick = { onUploadScreenshot(examMode, board) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = UploadColor,
+                    contentColor = Color.White,
+                ),
             ) {
                 Text("Upload from Gallery")
             }
@@ -118,8 +133,8 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                    contentColor = MaterialTheme.colorScheme.onTertiary,
+                    containerColor = HomeworkColor,
+                    contentColor = Color.White,
                 ),
             ) {
                 Text("Home Work — Practice Questions")
@@ -131,8 +146,8 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                    containerColor = NewsColor,
+                    contentColor = Color.White,
                 ),
             ) {
                 Text("UPSC Live Agent — Daily Current Affairs")
