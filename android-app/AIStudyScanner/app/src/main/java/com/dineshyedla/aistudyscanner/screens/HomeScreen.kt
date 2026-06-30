@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 private val ScanColor = Color(0xFF6750A4) // brand purple
 private val UploadColor = Color(0xFF1565C0) // blue
 private val HomeworkColor = Color(0xFF2E7D32) // green
-private val NewsColor = Color(0xFFEF6C00) // orange (current affairs)
+private val NewsColor = Color(0xFFC2185B) // rose/crimson (current affairs)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
