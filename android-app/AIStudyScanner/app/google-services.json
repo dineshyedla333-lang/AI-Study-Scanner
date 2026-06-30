@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:443750087609:android:cde1bc8b5938dd731f9468",
+        "mobilesdk_app_id": "1:443750087609:android:187e8d0657be3e611f9468",
         "android_client_info": {
           "package_name": "com.aistudyscanner.agent"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "443750087609-hv895q8fgj1b609seig1r5p4kv5r8p5i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDJGwH8URAT0FP2GBE5-SqQxp3IQX-LEXM"
@@ -20,7 +25,41 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "443750087609-hv895q8fgj1b609seig1r5p4kv5r8p5i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:443750087609:android:cde1bc8b5938dd731f9468",
+        "android_client_info": {
+          "package_name": "com.dineshyedla.aistudyscanner"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "443750087609-hv895q8fgj1b609seig1r5p4kv5r8p5i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJGwH8URAT0FP2GBE5-SqQxp3IQX-LEXM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "443750087609-hv895q8fgj1b609seig1r5p4kv5r8p5i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
