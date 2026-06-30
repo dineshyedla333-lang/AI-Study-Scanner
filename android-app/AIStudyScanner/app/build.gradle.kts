@@ -136,6 +136,9 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.messaging)
 
+    // Google Sign-In (registration with a verified Gmail account)
+    implementation(libs.play.services.auth)
+
     // Sentry (error monitoring)
     implementation(libs.sentry.android)
 

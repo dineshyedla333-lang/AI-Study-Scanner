@@ -70,6 +70,9 @@ data class NewsResponse(
 data class SubscribeRequest(
     @SerializedName("token") val token: String,
     @SerializedName("user_id") val user_id: String? = null,
+    @SerializedName("email") val email: String? = null,
+    @SerializedName("phone") val phone: String? = null,
+    @SerializedName("id_token") val id_token: String? = null,
     @SerializedName("exam") val exam: String = "UPSC",
     @SerializedName("times") val times: List<String>,
     @SerializedName("tz") val tz: String,

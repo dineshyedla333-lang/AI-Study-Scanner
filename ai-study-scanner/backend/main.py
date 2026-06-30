@@ -195,6 +195,9 @@ class NewsResponse(BaseModel):
 class SubscribeRequest(BaseModel):
     token: str = Field(..., min_length=10, max_length=4096)
     user_id: str | None = None
+    email: str | None = Field(None, max_length=320)
+    phone: str | None = Field(None, max_length=20)
+    id_token: str | None = Field(None, max_length=8192)
     exam: str = "UPSC"
     times: list[str] = Field(default_factory=lambda: ["08:00"])
     tz: str = "Asia/Kolkata"
@@ -539,9 +542,23 @@ def subscribe_endpoint(
             detail="Provide 1-3 valid times in HH:MM (24h) format.",
         )
 
+    # Identity: prefer values verified from the Firebase ID token over whatever
+    # the client claims. Falls back to the raw fields if the token is absent or
+    # unverifiable (e.g. Firebase not configured) so subscribe never hard-fails.
+    verified = (
+        notifications.verify_id_token(settings, req.id_token)
+        if req.id_token
+        else None
+    )
+    uid = (verified or {}).get("uid") or (req.user_id or "")
+    email = ((verified or {}).get("email") or (req.email or "")).strip()
+    phone = (req.phone or "").strip()
+
     sub = {
         "token": req.token,
-        "userId": req.user_id or "",
+        "userId": uid,
+        "email": email,
+        "phone": phone,
         "exam": (req.exam or "UPSC").strip().upper() or "UPSC",
         "times": times,
         "tz": (req.tz or "Asia/Kolkata").strip() or "Asia/Kolkata",
@@ -558,6 +575,22 @@ def subscribe_endpoint(
             status_code=502,
             detail=f"Could not save subscription: {e}",
         ) from e
+
+    # Best-effort user record so we have a registry of who signed up.
+    if uid:
+        try:
+            notifications.upsert_user(
+                settings,
+                {
+                    "uid": uid,
+                    "email": email,
+                    "phone": phone,
+                    "lastToken": req.token,
+                    "verified": verified is not None,
+                },
+            )
+        except Exception:
+            logger.warning("User record upsert failed", exc_info=True)
 
     return SimpleStatus(
         status="ok",

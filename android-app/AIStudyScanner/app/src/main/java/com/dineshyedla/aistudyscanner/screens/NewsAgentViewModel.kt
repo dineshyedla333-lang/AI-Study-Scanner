@@ -3,6 +3,8 @@ package com.aistudyscanner.agent.screens
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aistudyscanner.agent.auth.AuthManager
+import com.aistudyscanner.agent.auth.ProfilePrefs
 import com.aistudyscanner.agent.messaging.NewsAgentPrefs
 import com.aistudyscanner.agent.network.ApiClient
 import com.aistudyscanner.agent.network.HomeworkItem
@@ -21,7 +23,7 @@ import kotlinx.coroutines.tasks.await
 import retrofit2.HttpException
 import java.util.TimeZone
 
-/** Preset times the user can pick from (max 2). */
+/** Preset times the user can pick from for the single daily delivery. */
 val NEWS_TIME_OPTIONS = listOf("07:00", "08:00", "13:00", "18:00", "20:00", "21:00")
 
 data class NewsAgentUiState(
@@ -53,14 +55,9 @@ class NewsAgentViewModel(
         )
     }
 
-    fun toggleTime(time: String) {
-        val current = _uiState.value.selectedTimes
-        val next = when {
-            time in current -> current - time
-            current.size >= 2 -> listOf(current.last(), time) // keep newest 2
-            else -> current + time
-        }.sorted()
-        _uiState.value = _uiState.value.copy(selectedTimes = next, status = null)
+    /** One daily delivery: selecting a time replaces the previous choice. */
+    fun selectTime(time: String) {
+        _uiState.value = _uiState.value.copy(selectedTimes = listOf(time), status = null)
     }
 
     fun previewNow(context: Context) {
@@ -102,7 +99,7 @@ class NewsAgentViewModel(
     fun enable(context: Context) {
         val times = _uiState.value.selectedTimes
         if (times.isEmpty()) {
-            _uiState.value = _uiState.value.copy(error = "Pick at least one time.")
+            _uiState.value = _uiState.value.copy(error = "Pick a delivery time.")
             return
         }
         _uiState.value = _uiState.value.copy(isSaving = true, error = null, status = null)
@@ -112,7 +109,11 @@ class NewsAgentViewModel(
                 val resp = ApiClient.api.subscribe(
                     SubscribeRequest(
                         token = token,
-                        user_id = UserIdProvider.getOrCreateAnonymousId(context),
+                        user_id = AuthManager.currentUser()?.uid
+                            ?: UserIdProvider.getOrCreateAnonymousId(context),
+                        email = ProfilePrefs.getEmail(context),
+                        phone = ProfilePrefs.getPhone(context),
+                        id_token = AuthManager.idToken(),
                         exam = _uiState.value.exam,
                         times = times,
                         tz = TimeZone.getDefault().id,

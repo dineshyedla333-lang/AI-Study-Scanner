@@ -10,6 +10,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.aistudyscanner.agent.MainActivity
 import com.aistudyscanner.agent.R
+import com.aistudyscanner.agent.auth.ProfilePrefs
 import com.aistudyscanner.agent.network.ApiClient
 import com.aistudyscanner.agent.network.SubscribeRequest
 import com.aistudyscanner.agent.usage.UserIdProvider
@@ -42,9 +43,12 @@ class StudyMessagingService : FirebaseMessagingService() {
                 ApiClient.api.subscribe(
                     SubscribeRequest(
                         token = token,
-                        user_id = UserIdProvider.getOrCreateAnonymousId(
-                            this@StudyMessagingService
-                        ),
+                        user_id = ProfilePrefs.getUid(this@StudyMessagingService)
+                            ?: UserIdProvider.getOrCreateAnonymousId(
+                                this@StudyMessagingService
+                            ),
+                        email = ProfilePrefs.getEmail(this@StudyMessagingService),
+                        phone = ProfilePrefs.getPhone(this@StudyMessagingService),
                         exam = NewsAgentPrefs.getExam(this@StudyMessagingService),
                         times = times,
                         tz = TimeZone.getDefault().id,

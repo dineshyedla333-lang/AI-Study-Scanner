@@ -105,9 +105,9 @@ fun NewsAgentScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // Delivery times
+            // Delivery time — one daily push
             Text(
-                text = "When should we send it? (pick up to 2)",
+                text = "When should we send it? (once a day)",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -115,7 +115,7 @@ fun NewsAgentScreen(
                 NEWS_TIME_OPTIONS.forEach { time ->
                     FilterChip(
                         selected = time in state.selectedTimes,
-                        onClick = { vm.toggleTime(time) },
+                        onClick = { vm.selectTime(time) },
                         label = { Text(time) },
                     )
                 }

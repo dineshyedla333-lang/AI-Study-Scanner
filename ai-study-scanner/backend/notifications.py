@@ -6,8 +6,12 @@ that needs push/Firestore raises LiveAgentNotConfigured, which the API layer
 turns into a clear 503.
 
 Firestore schema — collection `news_subscriptions`, document id = FCM token:
-  token: str, userId: str, exam: str, times: [ "HH:MM" ], tz: str (IANA),
-  count: int, enabled: bool, lastSentSlot: str ("YYYY-MM-DD HH:MM"),
+  token: str, userId: str, email: str, phone: str, exam: str,
+  times: [ "HH:MM" ], tz: str (IANA), count: int, enabled: bool,
+  lastSentSlot: str ("YYYY-MM-DD HH:MM"), updatedAt: server timestamp
+
+Registered users — collection `users`, document id = Firebase uid:
+  uid: str, email: str, phone: str, lastToken: str, verified: bool,
   updatedAt: server timestamp
 """
 from __future__ import annotations
@@ -83,6 +87,40 @@ def upsert_subscription(settings: Settings, sub: dict) -> None:
 def delete_subscription(settings: Settings, token: str) -> None:
     _ensure_init(settings)
     _db.collection(_COLLECTION).document(token).delete()
+
+
+def verify_id_token(settings: Settings, id_token: str | None) -> dict | None:
+    """Verify a Firebase ID token; return decoded claims or None.
+
+    Returns None (rather than raising) when the token is missing/invalid or
+    Firebase is not configured, so callers can fall back to client-supplied
+    identity without failing the request.
+    """
+    if not id_token:
+        return None
+    try:
+        _ensure_init(settings)
+        from firebase_admin import auth as fb_auth
+
+        return fb_auth.verify_id_token(id_token)
+    except LiveAgentNotConfigured:
+        return None
+    except Exception:
+        logger.warning("ID token verification failed", exc_info=True)
+        return None
+
+
+def upsert_user(settings: Settings, user: dict) -> None:
+    """Store/merge a registered-user record keyed by Firebase uid."""
+    uid = user.get("uid")
+    if not uid:
+        return
+    _ensure_init(settings)
+    from firebase_admin import firestore
+
+    data = dict(user)
+    data["updatedAt"] = firestore.SERVER_TIMESTAMP
+    _db.collection("users").document(uid).set(data, merge=True)
 
 
 # --------------------------------------------------------------------------- #

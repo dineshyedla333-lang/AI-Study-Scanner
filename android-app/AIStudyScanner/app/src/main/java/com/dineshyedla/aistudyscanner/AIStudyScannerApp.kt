@@ -13,11 +13,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.aistudyscanner.agent.auth.ProfilePrefs
 import com.aistudyscanner.agent.navigation.Routes
 import com.aistudyscanner.agent.screens.ExplainScreen
 import com.aistudyscanner.agent.screens.HistoryScreen
 import com.aistudyscanner.agent.screens.HomeScreen
 import com.aistudyscanner.agent.screens.HomeworkScreen
+import com.aistudyscanner.agent.screens.LoginScreen
 import com.aistudyscanner.agent.screens.NewsAgentScreen
 import com.aistudyscanner.agent.screens.ScannerScreen
 import com.aistudyscanner.agent.screens.SolutionScreen
@@ -59,7 +61,21 @@ fun AIStudyScannerApp() {
         }
     }
 
-    NavHost(navController = navController, startDestination = Routes.HOME) {
+    val startDestination = remember {
+        if (ProfilePrefs.isRegistered(context)) Routes.HOME else Routes.LOGIN
+    }
+
+    NavHost(navController = navController, startDestination = startDestination) {
+
+        composable(Routes.LOGIN) {
+            LoginScreen(
+                onRegistered = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.LOGIN) { inclusive = true }
+                    }
+                },
+            )
+        }
 
         composable(Routes.HOME) {
             HomeScreen(
