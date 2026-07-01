@@ -25,6 +25,9 @@ class Settings:
     # Home Work generates many Q&A at once, so it needs a bigger budget.
     groq_homework_max_output_tokens: int = 3072
     groq_homework_timeout_s: float = 60.0
+    # AI Planner builds a multi-month program, so it needs the biggest budget.
+    groq_planner_max_output_tokens: int = 4096
+    groq_planner_timeout_s: float = 60.0
 
     # Cost controls
     max_question_chars: int = 4000
@@ -81,6 +84,12 @@ def load_settings() -> Settings:
         ),
         groq_homework_timeout_s=float(
             os.getenv("GROQ_HOMEWORK_TIMEOUT_S", "60.0")
+        ),
+        groq_planner_max_output_tokens=int(
+            os.getenv("GROQ_PLANNER_MAX_OUTPUT_TOKENS", "4096")
+        ),
+        groq_planner_timeout_s=float(
+            os.getenv("GROQ_PLANNER_TIMEOUT_S", "60.0")
         ),
         max_question_chars=int(os.getenv("MAX_QUESTION_CHARS", "4000")),
         prompt_answer_style=os.getenv("PROMPT_ANSWER_STYLE", "compact"),

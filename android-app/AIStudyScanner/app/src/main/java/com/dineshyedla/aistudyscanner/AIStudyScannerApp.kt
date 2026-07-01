@@ -21,6 +21,8 @@ import com.aistudyscanner.agent.screens.HomeScreen
 import com.aistudyscanner.agent.screens.HomeworkScreen
 import com.aistudyscanner.agent.screens.LoginScreen
 import com.aistudyscanner.agent.screens.NewsAgentScreen
+import com.aistudyscanner.agent.screens.PlannerScreen
+import com.aistudyscanner.agent.screens.ProfileScreen
 import com.aistudyscanner.agent.screens.ScannerScreen
 import com.aistudyscanner.agent.screens.SolutionScreen
 import com.aistudyscanner.agent.utils.runOcr
@@ -99,6 +101,12 @@ fun AIStudyScannerApp() {
                     navController.navigate(Routes.HOMEWORK)
                 },
                 onNewsAgent = { navController.navigate(Routes.NEWS_AGENT) },
+                onPlanner = { board ->
+                    navController.currentBackStackEntry?.savedStateHandle
+                        ?.set("board", board)
+                    navController.navigate(Routes.PLANNER)
+                },
+                onProfile = { navController.navigate(Routes.PROFILE) },
                 onExplainPage = { navController.navigate(Routes.EXPLAIN) },
                 onHistory = { navController.navigate(Routes.HISTORY) },
             )
@@ -149,8 +157,28 @@ fun AIStudyScannerApp() {
             )
         }
 
+        composable(Routes.PLANNER) {
+            val board = navController.previousBackStackEntry
+                ?.savedStateHandle?.get<String>("board") ?: "JEE"
+            PlannerScreen(
+                onBack = { navController.popBackStack() },
+                initialBoard = board,
+            )
+        }
+
         composable(Routes.NEWS_AGENT) {
             NewsAgentScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.PROFILE) {
+            ProfileScreen(
+                onBack = { navController.popBackStack() },
+                onLoggedOut = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+            )
         }
 
         composable(Routes.HISTORY) {

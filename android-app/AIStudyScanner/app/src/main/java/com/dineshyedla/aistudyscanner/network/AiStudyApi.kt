@@ -52,6 +52,31 @@ data class HomeworkResponse(
     @SerializedName("latency_ms") val latency_ms: Int,
 )
 
+// ---- AI Planner ----
+data class PlannerRequest(
+    @SerializedName("board") val board: String,
+    @SerializedName("months") val months: Int,
+    @SerializedName("hours_per_day") val hours_per_day: Float,
+    @SerializedName("goal") val goal: String? = null,
+)
+
+data class PlannerMonth(
+    @SerializedName("month") val month: Int,
+    @SerializedName("title") val title: String,
+    @SerializedName("topics") val topics: List<String>,
+    @SerializedName("milestone") val milestone: String,
+)
+
+data class PlannerResponse(
+    @SerializedName("provider") val provider: String,
+    @SerializedName("model") val model: String,
+    @SerializedName("board") val board: String,
+    @SerializedName("months") val months: Int,
+    @SerializedName("overview") val overview: String,
+    @SerializedName("plan") val plan: List<PlannerMonth>,
+    @SerializedName("latency_ms") val latency_ms: Int,
+)
+
 // ---- UPSC Live Agent ----
 data class NewsRequest(
     @SerializedName("exam") val exam: String = "UPSC",
@@ -98,6 +123,9 @@ interface AiStudyApi {
 
     @POST("homework")
     suspend fun homework(@Body body: HomeworkRequest): HomeworkResponse
+
+    @POST("planner")
+    suspend fun planner(@Body body: PlannerRequest): PlannerResponse
 
     @POST("news")
     suspend fun news(@Body body: NewsRequest): NewsResponse

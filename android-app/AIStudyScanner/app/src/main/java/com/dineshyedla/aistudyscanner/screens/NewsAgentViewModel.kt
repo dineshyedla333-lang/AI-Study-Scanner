@@ -23,8 +23,12 @@ import kotlinx.coroutines.tasks.await
 import retrofit2.HttpException
 import java.util.TimeZone
 
-/** Preset times the user can pick from for the single daily delivery. */
-val NEWS_TIME_OPTIONS = listOf("07:00", "08:00", "13:00", "18:00", "20:00", "21:00")
+/** Preset times the user can pick from (choose up to [MAX_NEWS_TIMES] a day). */
+val NEWS_TIME_OPTIONS =
+    listOf("06:00", "07:00", "08:00", "13:00", "17:00", "18:00", "20:00", "21:00")
+
+/** Max daily delivery slots a user can schedule (matches the backend cap). */
+const val MAX_NEWS_TIMES = 4
 
 data class NewsAgentUiState(
     val enabled: Boolean = false,
@@ -55,9 +59,20 @@ class NewsAgentViewModel(
         )
     }
 
-    /** One daily delivery: selecting a time replaces the previous choice. */
-    fun selectTime(time: String) {
-        _uiState.value = _uiState.value.copy(selectedTimes = listOf(time), status = null)
+    /** Toggle a delivery slot on/off, keeping at most [MAX_NEWS_TIMES] picked. */
+    fun toggleTime(time: String) {
+        val current = _uiState.value.selectedTimes
+        val updated = when {
+            time in current -> current - time
+            current.size >= MAX_NEWS_TIMES -> {
+                _uiState.value = _uiState.value.copy(
+                    status = "You can pick up to $MAX_NEWS_TIMES times a day.",
+                )
+                return
+            }
+            else -> (current + time).sorted()
+        }
+        _uiState.value = _uiState.value.copy(selectedTimes = updated, status = null)
     }
 
     fun previewNow(context: Context) {

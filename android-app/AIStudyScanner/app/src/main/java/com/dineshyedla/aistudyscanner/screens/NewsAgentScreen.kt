@@ -105,9 +105,9 @@ fun NewsAgentScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // Delivery time — one daily push
+            // Delivery times — pick up to 4 pushes a day
             Text(
-                text = "When should we send it? (once a day)",
+                text = "When should we send it? (pick up to $MAX_NEWS_TIMES a day)",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -115,11 +115,19 @@ fun NewsAgentScreen(
                 NEWS_TIME_OPTIONS.forEach { time ->
                     FilterChip(
                         selected = time in state.selectedTimes,
-                        onClick = { vm.selectTime(time) },
+                        onClick = { vm.toggleTime(time) },
                         label = { Text(time) },
                     )
                 }
             }
+            Text(
+                text = "Selected: ${
+                    if (state.selectedTimes.isEmpty()) "none"
+                    else state.selectedTimes.joinToString(", ")
+                }",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             // Enable / disable
             Card(

@@ -8,5 +8,7 @@ object Routes {
     const val HISTORY = "history"
     const val EXPLAIN = "explain"
     const val HOMEWORK = "homework"
+    const val PLANNER = "planner"
     const val NEWS_AGENT = "news_agent"
+    const val PROFILE = "profile"
 }

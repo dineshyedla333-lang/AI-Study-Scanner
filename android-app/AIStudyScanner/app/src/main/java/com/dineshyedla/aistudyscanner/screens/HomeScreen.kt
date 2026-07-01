@@ -9,12 +9,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -36,6 +40,7 @@ import androidx.compose.ui.unit.dp
 private val ScanColor = Color(0xFF6750A4) // brand purple
 private val UploadColor = Color(0xFF1565C0) // blue
 private val HomeworkColor = Color(0xFF2E7D32) // green
+private val PlannerColor = Color(0xFF00838F) // teal (study planner)
 private val NewsColor = Color(0xFFC2185B) // rose/crimson (current affairs)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,6 +50,8 @@ fun HomeScreen(
     onUploadScreenshot: (examMode: Boolean, board: String) -> Unit,
     onHomework: (examMode: Boolean, board: String) -> Unit,
     onNewsAgent: () -> Unit,
+    onPlanner: (board: String) -> Unit,
+    onProfile: () -> Unit,
     onExplainPage: () -> Unit,
     onHistory: () -> Unit,
 ) {
@@ -52,7 +59,19 @@ fun HomeScreen(
     var board by remember { mutableStateOf(BOARD_OPTIONS.first()) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("AI Study Scan Agent") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("AI Study Scan Agent") },
+                actions = {
+                    IconButton(onClick = onProfile) {
+                        Icon(
+                            Icons.Default.AccountCircle,
+                            contentDescription = "Profile & Settings",
+                        )
+                    }
+                },
+            )
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -138,6 +157,19 @@ fun HomeScreen(
                 ),
             ) {
                 Text("Home Work — Practice Questions")
+            }
+
+            // AI Study Planner — month-by-month program for the chosen exam
+            Button(
+                onClick = { onPlanner(board) },
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PlannerColor,
+                    contentColor = Color.White,
+                ),
+            ) {
+                Text("AI Study Planner — Month-by-Month Plan")
             }
 
             // UPSC Live Agent — daily current-affairs push

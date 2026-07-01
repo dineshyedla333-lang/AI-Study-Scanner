@@ -89,6 +89,47 @@ HOMEWORK_PROMPT_TEMPLATE = (
     "\nTopic:\n{topic}"
 )
 
+# AI Planner: exam/board-specific study program guidance
+PLANNER_EXAM_GUIDE = {
+    "CBSE": "Target: CBSE board exams (NCERT-based, chapter-wise).",
+    "JEE": "Target: JEE Main/Advanced — Physics, Chemistry, Maths.",
+    "NEET": "Target: NEET — Physics, Chemistry, Biology (NCERT-heavy).",
+    "EAMCET": "Target: AP/TS EAMCET — MCQ, formula-first, speed.",
+    "UPSC": (
+        "Target: UPSC Civil Services — Prelims + Mains, GS papers,"
+        " CSAT, current affairs, optional and answer writing."
+    ),
+}
+
+# AI Planner: build a month-by-month study program for the chosen exam/board
+PLANNER_PROMPT_TEMPLATE = (
+    "You are an expert study mentor for Indian students preparing for"
+    " {exam_label}.\n{exam_guide}\n"
+    "Design a realistic, motivating study program spanning exactly"
+    " {months} month(s). Assume the student can study about"
+    " {hours_per_day} hours per day.\n"
+    "{goal_line}"
+    "Progress from foundations to advanced topics; reserve the final"
+    " stretch for full-syllabus revision and mock tests.\n"
+    "For EACH month provide: a short theme title, the key syllabus"
+    " topics to cover that month (as a list of 3-6 items), and one"
+    " concrete milestone to reach by month end (e.g. a mock-test"
+    " target or number of chapters).\n"
+    "Respond with JSON ONLY (no markdown, no commentary) as an object:\n"
+    '{{"overview": "2-3 sentence summary of the strategy",'
+    ' "months": [{{"month": 1, "title": "...",'
+    ' "topics": ["...", "..."], "milestone": "..."}}]}}\n'
+    'Return exactly {months} entries in "months", numbered 1..{months}.'
+)
+
+
+def normalize_planner_exam(exam: str | None) -> str:
+    value = (exam or "").strip().upper()
+    if value not in PLANNER_EXAM_GUIDE:
+        return "GENERAL"
+    return value
+
+
 # UPSC Live Agent: turn fresh news headlines into current-affairs Q&A
 NEWS_QNA_PROMPT_TEMPLATE = (
     "You are a current-affairs tutor for Indian competitive exams ({exam}).\n"

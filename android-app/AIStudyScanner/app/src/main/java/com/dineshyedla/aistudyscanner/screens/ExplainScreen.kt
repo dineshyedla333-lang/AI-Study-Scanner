@@ -115,6 +115,29 @@ fun ExplainScreen(onBack: () -> Unit) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "AI Study Planner — Month-by-Month Plan",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Tap 'AI Study Planner', choose your exam (JEE, NEET, CBSE, " +
+                            "EAMCET or UPSC), how many months you have, and your daily study " +
+                            "hours. The AI builds a month-by-month program with the topics to " +
+                            "cover and a milestone to hit each month.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 ),
             ) {
@@ -126,10 +149,10 @@ fun ExplainScreen(onBack: () -> Unit) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Open 'UPSC Live Agent', pick up to two times of day and turn it on. " +
-                            "You'll get a daily notification with fresh current-affairs questions and " +
-                            "answers built from today's news. Tap 'Preview today's questions' to see a " +
-                            "sample right away. (Allow notifications when asked.)",
+                        text = "Open 'UPSC Live Agent', pick up to 4 times of day and turn it on. " +
+                            "You'll get a notification at each time with fresh current-affairs " +
+                            "questions and answers built from today's news. Tap 'Preview today's " +
+                            "questions' to see a sample right away. (Allow notifications when asked.)",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

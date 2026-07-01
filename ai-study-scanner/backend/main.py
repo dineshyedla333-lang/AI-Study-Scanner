@@ -30,8 +30,10 @@ from ai_solver import (
     AgenticSolveResult,
     HomeworkResult,
     MissingAPIKeyError,
+    PlannerResult,
     SolveResult,
     generate_homework,
+    generate_study_plan,
     solve_agentic,
     solve_gemini,
 )
@@ -59,7 +61,7 @@ _TIME_RE = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 
 
 def _validate_times(times: list[str] | None) -> list[str]:
-    """Keep valid 'HH:MM' entries, normalise to zero-padded, dedupe, cap at 3."""
+    """Keep valid 'HH:MM' times: zero-pad, dedupe, sort, cap at 4."""
     result: list[str] = []
     seen: set[str] = set()
     for raw in times or []:
@@ -71,7 +73,7 @@ def _validate_times(times: list[str] | None) -> list[str]:
         if norm not in seen:
             seen.add(norm)
             result.append(norm)
-    return result[:3]
+    return sorted(result)[:4]
 
 # Sentry (enabled only if SENTRY_DSN is set)
 _sentry_dsn = os.getenv("SENTRY_DSN")
@@ -170,6 +172,31 @@ class HomeworkResponse(BaseModel):
     model: str
     topic: str
     questions: list[HomeworkItemResponse]
+    latency_ms: int
+
+
+class PlannerRequest(BaseModel):
+    # Target exam/board: CBSE / JEE / NEET / EAMCET / UPSC (others -> general).
+    board: str = "CBSE"
+    months: int = Field(3, ge=1, le=12)
+    hours_per_day: float = Field(3.0, ge=0.5, le=16.0)
+    goal: str | None = Field(None, max_length=300)
+
+
+class PlannerMonthResponse(BaseModel):
+    month: int
+    title: str
+    topics: list[str]
+    milestone: str
+
+
+class PlannerResponse(BaseModel):
+    provider: Literal["groq"]
+    model: str
+    board: str
+    months: int
+    overview: str
+    plan: list[PlannerMonthResponse]
     latency_ms: int
 
 
@@ -463,6 +490,87 @@ def homework_endpoint(
 
 
 # --------------------------------------------------------------------------- #
+# AI Planner — month-by-month study program for a chosen exam/board
+# --------------------------------------------------------------------------- #
+def _planner_to_response(result: PlannerResult) -> PlannerResponse:
+    return PlannerResponse(
+        provider="groq",
+        model=result.model,
+        board=result.board,
+        months=result.months,
+        overview=result.overview,
+        plan=[
+            PlannerMonthResponse(
+                month=m.month,
+                title=m.title,
+                topics=m.topics,
+                milestone=m.milestone,
+            )
+            for m in result.plan
+        ],
+        latency_ms=result.latency_ms,
+    )
+
+
+@app.post("/planner", response_model=PlannerResponse)
+@limiter.limit(os.getenv("PLANNER_RATE_LIMIT", "5/minute"))
+def planner_endpoint(
+    request: Request, req: PlannerRequest = Body()
+) -> PlannerResponse:
+    board = (req.board or "CBSE").strip() or "CBSE"
+    months = max(1, min(12, req.months))
+    hours = max(0.5, min(16.0, req.hours_per_day))
+    goal = normalize_question_text(req.goal or "", max_chars=300).strip()
+
+    # Round hours for a clean cache key and prompt (e.g. 2.0, 3.5).
+    hours = round(hours * 2) / 2
+    key = f"planner:{board.upper()}:{months}:{hours}:{goal.lower()}"
+
+    cached = solve_cache.get(key)
+    if isinstance(cached, PlannerResult):
+        logger.info(
+            "Planner from cache",
+            extra={"board": board, "months": months},
+        )
+        return _planner_to_response(cached)
+
+    try:
+        result = generate_study_plan(
+            board=board,
+            months=months,
+            hours_per_day=hours,
+            goal=goal or None,
+            settings=settings,
+        )
+    except MissingAPIKeyError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Planner generation failed")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Upstream AI provider error: {e}",
+        ) from e
+
+    if not result.plan:
+        raise HTTPException(
+            status_code=502,
+            detail="AI did not return a plan. Please try again.",
+        )
+
+    solve_cache.set(key, result)
+    logger.info(
+        "Planner generated",
+        extra={
+            "board": board,
+            "months": months,
+            "returned": len(result.plan),
+            "latency_ms": result.latency_ms,
+        },
+    )
+    return _planner_to_response(result)
+
+
+# --------------------------------------------------------------------------- #
 # UPSC Live Agent — current-affairs news + scheduled push
 # --------------------------------------------------------------------------- #
 def _news_to_response(result: NewsResult) -> NewsResponse:
@@ -539,7 +647,7 @@ def subscribe_endpoint(
     if not times:
         raise HTTPException(
             status_code=422,
-            detail="Provide 1-3 valid times in HH:MM (24h) format.",
+            detail="Provide 1-4 valid times in HH:MM (24h) format.",
         )
 
     # Identity: prefer values verified from the Firebase ID token over whatever

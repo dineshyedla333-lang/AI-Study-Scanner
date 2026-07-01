@@ -14,6 +14,9 @@ from prompts import (
     EXAM_MODE_GUIDE,
     ANSWER_STYLE_GUIDE,
     HOMEWORK_PROMPT_TEMPLATE,
+    PLANNER_EXAM_GUIDE,
+    PLANNER_PROMPT_TEMPLATE,
+    normalize_planner_exam,
     _normalize_answer_style,
     _normalize_exam_type,
 )
@@ -61,6 +64,25 @@ class HomeworkResult:
     model: str
     topic: str
     items: list[HomeworkItem] = field(default_factory=list)
+    latency_ms: int = 0
+
+
+@dataclass(frozen=True)
+class PlannerMonth:
+    month: int
+    title: str
+    topics: list[str] = field(default_factory=list)
+    milestone: str = ""
+
+
+@dataclass(frozen=True)
+class PlannerResult:
+    provider: str
+    model: str
+    board: str
+    months: int
+    overview: str = ""
+    plan: list[PlannerMonth] = field(default_factory=list)
     latency_ms: int = 0
 
 
@@ -289,5 +311,103 @@ def generate_homework(
         model=settings.groq_model,
         topic=topic,
         items=items,
+        latency_ms=latency_ms,
+    )
+
+
+def _parse_planner_json(text: str, months: int) -> tuple[str, list[PlannerMonth]]:
+    """Best-effort parse of the planner JSON object {overview, months:[...]}."""
+    raw = (text or "").strip()
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        raw = raw[start : end + 1]
+
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return "", []
+    if not isinstance(data, dict):
+        return "", []
+
+    overview = str(data.get("overview", "")).strip()
+    plan: list[PlannerMonth] = []
+    for obj in data.get("months", []) or []:
+        if not isinstance(obj, dict):
+            continue
+        try:
+            month_no = int(obj.get("month", len(plan) + 1))
+        except Exception:
+            month_no = len(plan) + 1
+        title = str(obj.get("title", "")).strip()
+        topics_raw = obj.get("topics", [])
+        if isinstance(topics_raw, list):
+            topics = [str(t).strip() for t in topics_raw if str(t).strip()]
+        elif isinstance(topics_raw, str):
+            topics = [topics_raw.strip()] if topics_raw.strip() else []
+        else:
+            topics = []
+        milestone = str(obj.get("milestone", "")).strip()
+        plan.append(
+            PlannerMonth(
+                month=month_no,
+                title=title,
+                topics=topics,
+                milestone=milestone,
+            )
+        )
+    return overview, plan[:months]
+
+
+def generate_study_plan(
+    *,
+    board: str,
+    months: int,
+    hours_per_day: float,
+    goal: str | None,
+    settings: Settings,
+) -> PlannerResult:
+    if not settings.groq_api_key:
+        raise MissingAPIKeyError("GROQ_API_KEY is not configured")
+
+    exam_key = normalize_planner_exam(board)
+    if exam_key == "GENERAL":
+        exam_label = "Indian school / competitive exams"
+        exam_guide = "Follow the standard Indian school / entrance syllabus."
+    else:
+        exam_label = exam_key
+        exam_guide = PLANNER_EXAM_GUIDE[exam_key]
+
+    goal_text = (goal or "").strip()
+    goal_line = (
+        f"The student's stated goal: {goal_text}.\n" if goal_text else ""
+    )
+
+    prompt = PLANNER_PROMPT_TEMPLATE.format(
+        exam_label=exam_label,
+        exam_guide=exam_guide,
+        months=months,
+        hours_per_day=hours_per_day,
+        goal_line=goal_line,
+    )
+
+    client = Groq(api_key=settings.groq_api_key)
+    text, latency_ms = _call_groq(
+        client,
+        model=settings.groq_model,
+        prompt=prompt,
+        temperature=settings.groq_temperature_default,
+        max_tokens=settings.groq_planner_max_output_tokens,
+        timeout=settings.groq_planner_timeout_s,
+    )
+
+    overview, plan = _parse_planner_json(text, months)
+    return PlannerResult(
+        provider="groq",
+        model=settings.groq_model,
+        board=exam_label,
+        months=months,
+        overview=overview,
+        plan=plan,
         latency_ms=latency_ms,
     )

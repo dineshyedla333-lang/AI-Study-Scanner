@@ -39,6 +39,11 @@ object ProfilePrefs {
             .apply()
     }
 
+    /** Update just the mobile number (from the Profile & Settings screen). */
+    fun updatePhone(context: Context, phone: String) {
+        prefs(context).edit().putString(KEY_PHONE, phone).apply()
+    }
+
     fun clear(context: Context) {
         prefs(context).edit().clear().apply()
     }
