@@ -7,9 +7,10 @@ An AI-powered study helper for Indian school / entrance-exam students. Live on
 Google Play (internal testing) as **"AI Study Scan Agent"**.
 - **Backend** — FastAPI service using **Groq** (`llama-3.3-70b-versatile`) as the
   LLM. It answers exam questions (single-shot and agentic), generates practice
-  **Home Work**, and produces daily **UPSC current-affairs** Q&A delivered via FCM
-  push. Includes slowapi rate limiting, TTL caching, Prometheus metrics, Sentry,
-  and Firebase (**firebase-admin**) for FCM + Firestore.
+  **Home Work**, builds month-by-month **AI Study Planner** programs, and produces
+  daily **UPSC current-affairs** Q&A delivered via FCM push. Includes slowapi rate
+  limiting, TTL caching, Prometheus metrics, Sentry, and Firebase
+  (**firebase-admin**) for FCM + Firestore.
 - **Live client** — native **Android** app (`android-app/AIStudyScanner/`, Kotlin +
   Jetpack Compose). This is the published, canonical client.
 - **Flutter** app (`flutter_mobile/`) — older/secondary; **not** the shipping client.
@@ -76,9 +77,13 @@ cd ai-study-scanner\backend
   Returns reasoning `steps` + `answer`.
 - `POST /homework` — practice questions. Body: `{topic, count (3-20), exam_mode, board}`
   → `{questions:[{question, answer}]}`
+- `POST /planner` — month-by-month study program. Body:
+  `{board, months (1-12), hours_per_day (0.5-16), goal?}` → `{overview, plan:[{month,
+  title, topics:[…], milestone}]}`. `board` ∈ CBSE/JEE/NEET/EAMCET/UPSC (others → general).
 - `POST /news` — UPSC current-affairs Q&A from live RSS. Body: `{exam, count (1-10)}`
 - `POST /news/subscribe` · `POST /news/unsubscribe` — FCM token + schedule, stored in
   Firestore `news_subscriptions`. Needs Firebase configured (else graceful 503).
+  `times` is **1-4** `"HH:MM"` slots (sorted, deduped); each fires its own daily push.
 - `GET` or `POST /cron/dispatch?key=<CRON_SECRET>` — an external cron calls this every
   ~15 min; it sends due pushes. 403 without the secret.
 - `board` ∈ **Auto · CBSE · JEE · NEET · EAMCET** (Auto = let the agent detect it).
@@ -87,7 +92,8 @@ cd ai-study-scanner\backend
 Loaded from a local `.env` in `ai-study-scanner/backend/` (template: `.env.example`).
 - `GROQ_API_KEY` (required), `GROQ_MODEL` (default `llama-3.3-70b-versatile`)
 - `GROQ_TIMEOUT_S`, `GROQ_TEMPERATURE_EXAM`, `GROQ_TEMPERATURE_DEFAULT`,
-  `GROQ_MAX_OUTPUT_TOKENS`, `GROQ_HOMEWORK_MAX_OUTPUT_TOKENS`, `GROQ_HOMEWORK_TIMEOUT_S`
+  `GROQ_MAX_OUTPUT_TOKENS`, `GROQ_HOMEWORK_MAX_OUTPUT_TOKENS`, `GROQ_HOMEWORK_TIMEOUT_S`,
+  `GROQ_PLANNER_MAX_OUTPUT_TOKENS` (default 4096), `GROQ_PLANNER_TIMEOUT_S` (default 60)
 - `MAX_QUESTION_CHARS`, `PROMPT_ANSWER_STYLE`, `SOLVE_CACHE_TTL_S`
 - **UPSC Live Agent:** `NEWS_RSS_FEEDS` (optional, comma-separated; sensible defaults
   built in), `NEWS_PER_FEED`, `NEWS_MAX_HEADLINES`, `NEWS_CACHE_TTL_S`,
@@ -134,13 +140,20 @@ Two cron-job.org jobs are configured and live:
 - Path: `android-app/AIStudyScanner/`. Kotlin + Compose; applicationId
   `com.aistudyscanner.agent`. Uses Firebase (`google-services.json` present);
   FCM notification channel id `upsc_live_agent`.
-- **Current release: v1.2.1 / versionCode 10** on Play Internal testing (next = 11).
-  App uses the bare default `MaterialTheme {}` (no custom palette), so the 4 home
-  action buttons set their colors explicitly in `screens/HomeScreen.kt`
-  (Scan=purple, Upload=blue, Home Work=green, UPSC=orange; white text).
-- UPSC Live Agent subscribe sends the **device timezone**
-  (`TimeZone.getDefault().id`) and **24h "HH:MM" times**; the server fires the push
-  at the subscriber's local time on the next cron tick.
+- **Latest build: v1.2.3 / versionCode 12** (signed AAB built + backend deployed
+  2026-07-01; next = 13). App uses the bare default `MaterialTheme {}` (no custom
+  palette), so the home action buttons set their colors explicitly in
+  `screens/HomeScreen.kt` (Scan=purple, Upload=blue, Home Work=green,
+  Planner=teal `#00838F`, UPSC=rose `#C2185B`; white text).
+- Screens: `HomeScreen` (+ account icon → `ProfileScreen`), `ScannerScreen`,
+  `SolutionScreen`, `HomeworkScreen`, `PlannerScreen` (AI Study Planner:
+  exam/months/hours/goal → topics + milestones), `NewsAgentScreen` (UPSC Live Agent),
+  `LoginScreen`, `HistoryScreen`, `ExplainScreen`. `ProfileScreen` shows name/email
+  from `auth/ProfilePrefs`, edits phone, and **Logout** (`AuthManager.signOut` +
+  `ProfilePrefs.clear` → back to `LoginScreen`).
+- UPSC Live Agent lets the user pick **up to 4 daily times** (toggle chips); subscribe
+  sends the **device timezone** (`TimeZone.getDefault().id`) and **24h "HH:MM" times**;
+  the server fires each push at the subscriber's local time on the next cron tick.
 - Quick Kotlin check (no packaging): `.\gradlew :app:compileDebugKotlin`
 - Signed release AAB (**bump `RELEASE_VERSION_CODE` every release**; keystore
   password/alias are kept locally, NOT in this file):
