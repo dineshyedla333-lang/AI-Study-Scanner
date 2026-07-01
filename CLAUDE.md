@@ -140,8 +140,9 @@ Two cron-job.org jobs are configured and live:
 - Path: `android-app/AIStudyScanner/`. Kotlin + Compose; applicationId
   `com.aistudyscanner.agent`. Uses Firebase (`google-services.json` present);
   FCM notification channel id `upsc_live_agent`.
-- **Latest build: v1.2.3 / versionCode 12** (signed AAB built + backend deployed
-  2026-07-01; next = 13). App uses the bare default `MaterialTheme {}` (no custom
+- **Latest build: v1.2.4 / versionCode 13** (signed AAB built + backend deployed
+  2026-07-01; next = 14). Play rejected code 12 as already used, so this bumped to 13.
+  App uses the bare default `MaterialTheme {}` (no custom
   palette), so the home action buttons set their colors explicitly in
   `screens/HomeScreen.kt` (Scan=purple, Upload=blue, Home Work=green,
   Planner=teal `#00838F`, UPSC=rose `#C2185B`; white text).
