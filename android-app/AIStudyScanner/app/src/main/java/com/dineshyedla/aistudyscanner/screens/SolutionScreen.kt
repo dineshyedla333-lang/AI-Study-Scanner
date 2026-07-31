@@ -1,5 +1,7 @@
 package com.aistudyscanner.agent.screens
 
+import android.app.Activity
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -56,6 +58,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aistudyscanner.agent.ads.RewardedAdManager
 import com.aistudyscanner.agent.network.AgentStepResponse
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,7 +124,7 @@ fun SolutionScreen(
             // Usage quota
             state.usage?.let { usage ->
                 Text(
-                    text = "Free today: ${usage.usedToday}/${usage.limitPerDay} · ${usage.remainingToday} remaining",
+                    text = "Free today: ${usage.usedToday}/${usage.effectiveLimit} · ${usage.remainingToday} remaining",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -157,6 +160,30 @@ fun SolutionScreen(
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )
+            }
+
+            // Watch a rewarded ad for bonus quota once the free daily limit is hit
+            if (state.usage?.limitReached == true) {
+                OutlinedButton(
+                    onClick = {
+                        val activity = context as? Activity
+                        if (activity == null) return@OutlinedButton
+                        RewardedAdManager.show(
+                            activity = activity,
+                            onEarned = { vm.grantAdBonus(context) },
+                            onNotReady = {
+                                Toast.makeText(
+                                    context,
+                                    "Ad not ready yet, please try again shortly",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Watch ad for +3 more today")
+                }
             }
 
             // AI-detected info chips (subject / difficulty / board)

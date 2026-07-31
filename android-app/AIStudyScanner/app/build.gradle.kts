@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.aistudyscanner.agent"
-    compileSdk = 35
+    compileSdk = 36
 
     val apiBaseUrl =
         (project.findProperty("API_BASE_URL")?.toString() ?: "http://10.0.2.2:8000").trimEnd('/')
@@ -20,7 +20,7 @@ android {
     defaultConfig {
         applicationId = "com.aistudyscanner.agent"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = releaseVersionCode
         versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -138,6 +138,9 @@ dependencies {
 
     // Google Sign-In (registration with a verified Gmail account)
     implementation(libs.play.services.auth)
+
+    // AdMob (rewarded ads — bonus daily quota)
+    implementation(libs.play.services.ads)
 
     // Sentry (error monitoring)
     implementation(libs.sentry.android)

@@ -4,7 +4,9 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.aistudyscanner.agent.ads.RewardedAdManager
 import com.aistudyscanner.agent.messaging.StudyMessagingService
+import com.google.android.gms.ads.MobileAds
 import io.sentry.android.core.SentryAndroid
 
 class AIStudyScannerApplication : Application() {
@@ -12,6 +14,7 @@ class AIStudyScannerApplication : Application() {
         super.onCreate()
 
         createNewsNotificationChannel()
+        MobileAds.initialize(this) { RewardedAdManager.preload(this) }
 
         // Sentry (enabled only if DSN is provided via BuildConfig.SENTRY_DSN)
         val dsn = BuildConfig.SENTRY_DSN

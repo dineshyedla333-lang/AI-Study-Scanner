@@ -21,6 +21,11 @@
         <!-- Disable Sentry auto-init so AIStudyScannerApplication controls it (only when DSN is set) -->
         <meta-data android:name="io.sentry.auto-init" android:value="false" />
 
+        <!-- AdMob App ID (AI Study Scan Agent, linked 2026-07-29) -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-9538633548349202~9093067559" />
+
         <!-- UPSC Live Agent — FCM push receiver -->
         <service
             android:name=".messaging.StudyMessagingService"

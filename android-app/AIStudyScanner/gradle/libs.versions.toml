@@ -21,6 +21,7 @@ room = "2.6.1"
 
 firebaseBom = "33.5.1"
 playServicesAuth = "21.2.0"
+playServicesAds = "23.6.0"
 sentry = "7.14.0"
 
 [libraries]
@@ -64,6 +65,7 @@ firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
 
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
+play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playServicesAds" }
 
 sentry-android = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" }
 

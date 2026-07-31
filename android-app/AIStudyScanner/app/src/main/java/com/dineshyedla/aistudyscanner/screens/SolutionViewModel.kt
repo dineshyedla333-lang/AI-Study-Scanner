@@ -55,6 +55,16 @@ class SolutionViewModel(
         _uiState.value = _uiState.value.copy(examBoard = board)
     }
 
+    fun grantAdBonus(context: Context) {
+        viewModelScope.launch {
+            val usage = usageRepo.grantBonus(context)
+            _uiState.value = _uiState.value.copy(
+                usage = usage,
+                error = if (usage.isAllowed && _uiState.value.answer == null) null else _uiState.value.error,
+            )
+        }
+    }
+
     fun shareAnswer(context: Context) {
         val state = _uiState.value
         val answer = state.answer ?: return
@@ -100,7 +110,7 @@ class SolutionViewModel(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         currentAgentStep = "",
-                        error = "Daily free limit reached (10/day). Try again tomorrow.",
+                        error = "Daily free limit reached (${usage.effectiveLimit}/day). Watch an ad for +3 more, or try again tomorrow.",
                     )
                     return@launch
                 }

@@ -1,6 +1,7 @@
 package com.aistudyscanner.agent.usage
 
 import android.content.Context
+import com.aistudyscanner.agent.BuildConfig
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -12,10 +13,12 @@ data class UsageStatus(
     val usedToday: Int,
     val limitPerDay: Int,
     val consumedInThisCall: Boolean,
+    val bonusToday: Int = 0,
 ) {
-    val remainingToday: Int get() = (limitPerDay - usedToday).coerceAtLeast(0)
-    val isAllowed: Boolean get() = consumedInThisCall || usedToday < limitPerDay
-    val limitReached: Boolean get() = usedToday >= limitPerDay
+    val effectiveLimit: Int get() = limitPerDay + bonusToday
+    val remainingToday: Int get() = (effectiveLimit - usedToday).coerceAtLeast(0)
+    val isAllowed: Boolean get() = consumedInThisCall || usedToday < effectiveLimit
+    val limitReached: Boolean get() = usedToday >= effectiveLimit
 }
 
 /**
@@ -27,12 +30,13 @@ data class UsageStatus(
  *  - userId: string
  *  - day: string (yyyy-MM-dd)
  *  - count: number
+ *  - bonus: number (extra quota granted by rewarded ads, on top of limitPerDay)
  *  - updatedAt: server timestamp
  */
 class UsageRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val limitPerDay: Int = 10,
+    private val limitPerDay: Int = if (BuildConfig.DEBUG) 2 else 10,
 ) {
     private fun resolveUserId(context: Context): String {
         val firebaseUser = auth.currentUser
@@ -60,12 +64,15 @@ class UsageRepository(
         return db.runTransaction { txn ->
             val snap = txn.get(docRef)
             val current = (snap.getLong("count") ?: 0L).toInt()
+            val bonus = (snap.getLong("bonus") ?: 0L).toInt()
+            val effectiveLimit = limitPerDay + bonus
 
-            if (current >= limitPerDay) {
+            if (current >= effectiveLimit) {
                 return@runTransaction UsageStatus(
                     usedToday = current,
                     limitPerDay = limitPerDay,
                     consumedInThisCall = false,
+                    bonusToday = bonus,
                 )
             }
 
@@ -76,6 +83,7 @@ class UsageRepository(
                         "userId" to userId,
                         "day" to day,
                         "count" to 1,
+                        "bonus" to 0,
                         "updatedAt" to FieldValue.serverTimestamp(),
                     )
                 )
@@ -83,6 +91,7 @@ class UsageRepository(
                     usedToday = 1,
                     limitPerDay = limitPerDay,
                     consumedInThisCall = true,
+                    bonusToday = bonus,
                 )
             }
 
@@ -97,6 +106,51 @@ class UsageRepository(
                 usedToday = current + 1,
                 limitPerDay = limitPerDay,
                 consumedInThisCall = true,
+                bonusToday = bonus,
+            )
+        }.await()
+    }
+
+    /**
+     * Grants bonus quota for today (e.g. after a rewarded ad is watched).
+     * Adds on top of any existing bonus rather than replacing it.
+     */
+    suspend fun grantBonus(context: Context, amount: Int = 3): UsageStatus {
+        val userId = resolveUserId(context)
+        val day = todayKey()
+        val docRef = db.collection("usage_daily").document(docId(userId, day))
+
+        return db.runTransaction { txn ->
+            val snap = txn.get(docRef)
+            val current = (snap.getLong("count") ?: 0L).toInt()
+            val newBonus = (snap.getLong("bonus") ?: 0L).toInt() + amount
+
+            if (!snap.exists()) {
+                txn.set(
+                    docRef,
+                    mapOf(
+                        "userId" to userId,
+                        "day" to day,
+                        "count" to 0,
+                        "bonus" to newBonus,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    )
+                )
+            } else {
+                txn.update(
+                    docRef,
+                    mapOf(
+                        "bonus" to newBonus,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    )
+                )
+            }
+
+            UsageStatus(
+                usedToday = current,
+                limitPerDay = limitPerDay,
+                consumedInThisCall = false,
+                bonusToday = newBonus,
             )
         }.await()
     }
