@@ -141,9 +141,11 @@ Two cron-job.org jobs are configured and live:
 - Path: `android-app/AIStudyScanner/`. Kotlin + Compose; applicationId
   `com.aistudyscanner.agent`. Uses Firebase (`google-services.json` present);
   FCM notification channel id `upsc_live_agent`.
-- **Latest build: v1.2.4 / versionCode 13** (signed AAB built + backend deployed
-  2026-07-01; next = 14). Play rejected code 12 as already used, so this bumped to 13.
-  `gradle.properties` now defaults to code 14 / v1.2.5 — bump it there each release.
+- **Latest build: v1.2.5 / versionCode 14** — submitted to Play **Production at 100%**
+  on 2026-08-01 (targetSdk 36 + rewarded ads). Play rejected code 12 as already used,
+  so codes go 13 → 14. `gradle.properties` defaults to code **15** for the next build;
+  bump it there every upload. The version NAME stays 1.2.5 until features change, so a
+  rebuild after a rejection is still labelled correctly.
 - **Toolchain: AGP 8.13.2, Gradle 9.0.0, Kotlin 2.0.21, JDK 21, compileSdk/targetSdk 36.**
   AGP 8.6.1 could not build compileSdk 36 (needs 8.9.1+). Play requires targetSdk 36
   for all updates from **31 Aug 2026**.
