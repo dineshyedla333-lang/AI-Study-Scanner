@@ -43,6 +43,22 @@ cd android-app\AIStudyScanner
 
 ## 2. Play Console declarations — required, or the release is rejected
 
+### Two blockers confirmed from the live listing (1 Aug 2026)
+
+- [ ] **Data safety currently says "No data shared with third parties".** That was
+      true before ads. AdMob receives the Advertising ID, which *is* sharing with a
+      third party. An inaccurate Data safety form is an enforcement action, not a
+      warning — fix this **before** the ads build goes live.
+- [ ] **The listing shows "Rated for 3+".** Check **App content → Target audience
+      and content**. If any under-13 age band is selected, the Families policy
+      forbids collecting the Advertising ID and forbids personalised ads, which
+      directly contradicts the `AD_ID` permission restored in this release. Either
+      set the target audience to 13+ (matching the privacy policy, which already
+      says 13+), or drop personalised ads and call
+      `setTagForChildDirectedTreatment` before serving. Decide before uploading.
+
+### Standard declarations
+
 Restoring `AD_ID` and shipping ads changes what must be declared:
 
 - [ ] **App content → Ads** — declare the app **contains ads**.
