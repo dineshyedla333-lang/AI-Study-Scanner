@@ -4,7 +4,8 @@ Guidance for Claude Code when working in this repository.
 
 ## Project overview
 An AI-powered study helper for Indian school / entrance-exam students. Live on
-Google Play (internal testing) as **"AI Study Scan Agent"**.
+Google Play in **Production** as **"AI Study Scan Agent"**
+(`com.aistudyscanner.agent`) — ~10 installs as of 1 Aug 2026.
 - **Backend** — FastAPI service using **Groq** (`llama-3.3-70b-versatile`) as the
   LLM. It answers exam questions (single-shot and agentic), generates practice
   **Home Work**, builds month-by-month **AI Study Planner** programs, and produces

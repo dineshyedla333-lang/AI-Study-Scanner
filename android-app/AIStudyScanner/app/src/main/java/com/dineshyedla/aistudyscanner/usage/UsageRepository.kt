@@ -112,6 +112,31 @@ class UsageRepository(
     }
 
     /**
+     * Gives back a solve that was consumed for a request that then failed.
+     * tryConsumeOne debits before the network call, so without this a timeout or
+     * a 500 would silently cost the user one of their few free solves.
+     */
+    suspend fun refundOne(context: Context) {
+        val userId = resolveUserId(context)
+        val day = todayKey()
+        val docRef = db.collection("usage_daily").document(docId(userId, day))
+
+        db.runTransaction<Unit> { txn ->
+            val snap = txn.get(docRef)
+            val current = (snap.getLong("count") ?: 0L).toInt()
+            if (snap.exists() && current > 0) {
+                txn.update(
+                    docRef,
+                    mapOf(
+                        "count" to FieldValue.increment(-1),
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    )
+                )
+            }
+        }.await()
+    }
+
+    /**
      * Grants bonus quota for today (e.g. after a rewarded ad is watched).
      * Adds on top of any existing bonus rather than replacing it.
      */

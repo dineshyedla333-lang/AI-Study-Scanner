@@ -55,13 +55,23 @@ class SolutionViewModel(
         _uiState.value = _uiState.value.copy(examBoard = board)
     }
 
+    /**
+     * Called once the rewarded ad reports the reward as earned. Runs the pending
+     * solve straight away — the user watched a full ad to get here, so making them
+     * hunt for the Solve button again is the easiest place to lose them.
+     */
     fun grantAdBonus(context: Context) {
         viewModelScope.launch {
-            val usage = usageRepo.grantBonus(context)
-            _uiState.value = _uiState.value.copy(
-                usage = usage,
-                error = if (usage.isAllowed && _uiState.value.answer == null) null else _uiState.value.error,
-            )
+            val usage = runCatching { usageRepo.grantBonus(context) }.getOrNull()
+            if (usage == null) {
+                // The reward is already spent, so say so rather than failing silently.
+                _uiState.value = _uiState.value.copy(
+                    error = "Couldn't add your bonus solves just now. Please try again.",
+                )
+                return@launch
+            }
+            _uiState.value = _uiState.value.copy(usage = usage, error = null)
+            if (_uiState.value.extractedText.isNotBlank()) solve(context)
         }
     }
 
@@ -102,9 +112,12 @@ class SolutionViewModel(
         )
 
         viewModelScope.launch {
+            // Held so a failure below can hand the solve back.
+            var debited: UsageStatus? = null
             try {
                 val usage = usageRepo.tryConsumeOne(context)
                 _uiState.value = _uiState.value.copy(usage = usage)
+                if (usage.consumedInThisCall) debited = usage
 
                 if (!usage.isAllowed) {
                     _uiState.value = _uiState.value.copy(
@@ -144,19 +157,40 @@ class SolutionViewModel(
                     answer = resp.answer,
                 )
             } catch (e: HttpException) {
-                val detail = e.response()?.errorBody()?.string() ?: e.message()
+                refund(context, debited)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     currentAgentStep = "",
-                    error = "HTTP ${e.code()}: $detail",
+                    error = when (e.code()) {
+                        429 -> "That was a bit quick — wait a few seconds and try again. " +
+                            "Your free solve wasn't used."
+                        in 500..599 -> "Our server had a problem. Your free solve wasn't " +
+                            "used, so please try again."
+                        else -> "Couldn't get an answer (error ${e.code()}). Your free " +
+                            "solve wasn't used."
+                    },
                 )
             } catch (e: Exception) {
+                refund(context, debited)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     currentAgentStep = "",
-                    error = (e.message ?: "Network error"),
+                    error = "Couldn't reach the server. Check your connection and try " +
+                        "again — your free solve wasn't used.",
                 )
             }
+        }
+    }
+
+    /** Hands back a solve debited for a request that then failed. Best effort — if
+     *  the refund itself fails there is nothing useful to tell the user. */
+    private suspend fun refund(context: Context, debited: UsageStatus?) {
+        if (debited == null) return
+        val ok = runCatching { usageRepo.refundOne(context) }.isSuccess
+        if (ok) {
+            _uiState.value = _uiState.value.copy(
+                usage = debited.copy(usedToday = (debited.usedToday - 1).coerceAtLeast(0)),
+            )
         }
     }
 
