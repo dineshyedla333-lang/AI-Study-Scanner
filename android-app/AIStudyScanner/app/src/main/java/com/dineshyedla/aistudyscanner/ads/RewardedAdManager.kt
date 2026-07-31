@@ -3,6 +3,7 @@ package com.aistudyscanner.agent.ads
 import android.app.Activity
 import android.content.Context
 import android.util.Log
+import com.aistudyscanner.agent.BuildConfig
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -15,7 +16,14 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
  */
 object RewardedAdManager {
     private const val TAG = "RewardedAdManager"
-    private const val AD_UNIT_ID = "ca-app-pub-9538633548349202/2336087512" // daily_quota_bonus
+    /** Google's always-fill test unit. Never request the live unit from a debug
+     *  build — self-served impressions count as invalid traffic and are a common
+     *  cause of AdMob account suspension. */
+    private const val TEST_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
+    private const val LIVE_AD_UNIT_ID = "ca-app-pub-9538633548349202/2336087512" // daily_quota_bonus
+
+    private val adUnitId: String
+        get() = if (BuildConfig.DEBUG) TEST_AD_UNIT_ID else LIVE_AD_UNIT_ID
 
     private var rewardedAd: RewardedAd? = null
     private var isLoading = false
@@ -27,7 +35,7 @@ object RewardedAdManager {
         isLoading = true
         RewardedAd.load(
             context.applicationContext,
-            AD_UNIT_ID,
+            adUnitId,
             AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
