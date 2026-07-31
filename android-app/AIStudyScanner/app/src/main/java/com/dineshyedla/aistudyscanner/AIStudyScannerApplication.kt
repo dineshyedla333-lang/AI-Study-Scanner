@@ -7,6 +7,7 @@ import android.os.Build
 import com.aistudyscanner.agent.ads.RewardedAdManager
 import com.aistudyscanner.agent.messaging.StudyMessagingService
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.RequestConfiguration
 import io.sentry.android.core.SentryAndroid
 
 class AIStudyScannerApplication : Application() {
@@ -14,6 +15,16 @@ class AIStudyScannerApplication : Application() {
         super.onCreate()
 
         createNewsNotificationChannel()
+
+        // The Play target audience starts at 13, and the Families policy requires ads
+        // suitable for minors wherever they are treated as children. Without this,
+        // AdMob may serve up to mature content. PG keeps decent fill; G is stricter
+        // but noticeably thins inventory.
+        MobileAds.setRequestConfiguration(
+            RequestConfiguration.Builder()
+                .setMaxAdContentRating(RequestConfiguration.MAX_AD_CONTENT_RATING_PG)
+                .build()
+        )
         MobileAds.initialize(this) { RewardedAdManager.preload(this) }
 
         // Sentry (enabled only if DSN is provided via BuildConfig.SENTRY_DSN)
