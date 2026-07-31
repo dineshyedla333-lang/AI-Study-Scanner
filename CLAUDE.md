@@ -142,6 +142,19 @@ Two cron-job.org jobs are configured and live:
   FCM notification channel id `upsc_live_agent`.
 - **Latest build: v1.2.4 / versionCode 13** (signed AAB built + backend deployed
   2026-07-01; next = 14). Play rejected code 12 as already used, so this bumped to 13.
+  `gradle.properties` now defaults to code 14 / v1.2.5 — bump it there each release.
+- **Toolchain: AGP 8.13.2, Gradle 9.0.0, Kotlin 2.0.21, JDK 21, compileSdk/targetSdk 36.**
+  AGP 8.6.1 could not build compileSdk 36 (needs 8.9.1+). Play requires targetSdk 36
+  for all updates from **31 Aug 2026**.
+- **Android 16 behaviour changes handled:** edge-to-edge is enforced at targetSdk 36,
+  so `MainActivity` calls `enableEdgeToEdge()` and `LoginScreen` (the only screen with
+  no `Scaffold`) uses `safeDrawingPadding()`. The portrait lock is ignored on screens
+  >= 600dp, held off by `PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY` in the
+  manifest — that opt-out stops working in API 37, so adaptive layouts are the follow-up.
+- **AdMob rewarded ads** (`ads/RewardedAdManager`) grant bonus daily quota via
+  `UsageRepository.grantBonus`. The `AD_ID` permission was previously stripped with
+  `tools:node="remove"`; it is now restored (personalised ads need it), so the Play
+  **Data safety** form must declare Advertising ID collection.
   App uses the bare default `MaterialTheme {}` (no custom
   palette), so the home action buttons set their colors explicitly in
   `screens/HomeScreen.kt` (Scan=purple, Upload=blue, Home Work=green,

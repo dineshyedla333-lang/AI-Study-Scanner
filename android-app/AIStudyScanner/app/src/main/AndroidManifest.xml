@@ -5,7 +5,12 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <!--
+      AD_ID is contributed by play-services-ads and is required for personalised
+      rewarded ads. It was previously removed (no ads shipped); restoring it means
+      the Play Data safety form must declare Advertising ID collection.
+    -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
 
     <application
@@ -20,6 +25,15 @@
 
         <!-- Disable Sentry auto-init so AIStudyScannerApplication controls it (only when DSN is set) -->
         <meta-data android:name="io.sentry.auto-init" android:value="false" />
+
+        <!--
+          At targetSdk 36 Android ignores screenOrientation on displays >= 600dp.
+          Keep the portrait lock for now; this opt-out stops working in API 37, so
+          proper adaptive layouts are the real follow-up.
+        -->
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
 
         <!-- AdMob App ID (AI Study Scan Agent, linked 2026-07-29) -->
         <meta-data
