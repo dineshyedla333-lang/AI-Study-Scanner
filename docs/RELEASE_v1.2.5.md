@@ -20,41 +20,37 @@ release.
 | Retention | Rewarded ad auto-runs the pending solve once the reward lands |
 | Docs | Privacy policy now covers advertising; CLAUDE.md corrected to Production |
 
-## 0. Known issue — 16 KB page size (NOT fixed in this release)
+## 0. 16 KB page size — FIXED in this release
 
-Running the debug build on an API 37 emulator raises:
+v1.2.4 was not 16 KB compatible. On an API 37 emulator it raised:
 
-> This app isn't 16 KB compatible. ELF alignment check failed. This app will be
-> run using page size compatible mode.
+> This app isn't 16 KB compatible. ELF alignment check failed.
 
-Misaligned native libraries:
+Only **Sentry** was actually at fault. The APK Analyzer flags alignment on
+`libsentry.so` and `libsentry-android.so` alone; the emulator additionally listed
+ML Kit, CameraX and graphics-path with "Unknown error", which turned out to be a
+parser quirk rather than misalignment.
 
-| Library | Comes from | Current | Fixed in |
-|---|---|---|---|
-| `libsentry.so`, `libsentry-android.so` | `io.sentry:sentry-android` | 7.14.0 | 8.x (latest 8.51.0) |
-| `libimage_processing_util_jni.so` | `androidx.camera:*` | 1.4.0 | 1.4.2+ (latest 1.6.1) |
-| `libandroidx.graphics.path.so` | `androidx.graphics:graphics-path` | 1.0.x via Compose BOM | 1.1.0 |
-| `libmlkit_google_ocr_pipeline.so` | `com.google.mlkit:text-recognition` | 16.0.1 | **16.0.1 is already latest** |
+Upgrading Sentry 7.14.0 → 8.51.0 did **not** help — the native libraries come from
+`sentry-android-ndk`, which pulls `sentry-native-ndk:0.16.0`, still 4 KB aligned.
 
-Google Play requires 16 KB support for apps targeting Android 15+. The ML Kit row
-is the awkward one: no newer bundled version exists, so fixing it likely means
-switching to the unbundled `com.google.android.gms:play-services-mlkit-text-recognition`,
-which is a behaviour change (model served via Play services) and needs its own testing.
+**The fix:** depend on `io.sentry:sentry-android-core` instead of
+`io.sentry:sentry-android`. The umbrella artifact drags in the NDK module; the core
+module does not. This app is pure Kotlin/Java, so NDK crash capture was never
+catching anything.
 
-**Decision for v1.2.5: ship without this fix.** Rationale:
+Verified end to end: the compatibility dialog no longer appears, and the packaged
+`arm64-v8a` libraries are now only
 
-- The targetSdk 36 deadline (31 Aug) is hard and this work is done and verified.
-- v1.2.4 uploaded successfully on 28 Jul with the same misalignment, so Play is
-  currently warning rather than blocking.
-- The fix is a large dependency jump (Sentry 7→8, CameraX 1.4→1.6, Compose BOM
-  2024.10→2026.06) with real breakage risk — the wrong thing to attempt in the same
-  release as a compliance deadline.
+```
+libandroidx.graphics.path.so
+libimage_processing_util_jni.so
+libmlkit_google_ocr_pipeline.so
+```
 
-**Verify empirically:** upload to Internal testing first. Play states plainly whether
-16 KB is a warning or a hard block. If it blocks, the dependency upgrade becomes
-urgent and v1.2.5 cannot ship as-is.
-
-Track the fix as **v1.2.6**.
+**Trade-off:** no native-crash capture and no session replay from Sentry. JVM
+exception reporting — everything this app can actually throw — is unaffected.
+Bonus: ~850 KB smaller across all ABIs.
 
 ## 1. Test on a device before uploading
 

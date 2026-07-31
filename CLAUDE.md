@@ -152,6 +152,10 @@ Two cron-job.org jobs are configured and live:
   no `Scaffold`) uses `safeDrawingPadding()`. The portrait lock is ignored on screens
   >= 600dp, held off by `PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY` in the
   manifest — that opt-out stops working in API 37, so adaptive layouts are the follow-up.
+- **16 KB page size:** use `io.sentry:sentry-android-core`, NOT `io.sentry:sentry-android`.
+  The umbrella artifact pulls `sentry-android-ndk` → `sentry-native-ndk`, whose
+  `libsentry.so` is still 4 KB aligned and fails Play's 16 KB requirement. Bumping
+  Sentry to 8.x does not fix it. The app has no native code, so nothing is lost.
 - **AdMob rewarded ads** (`ads/RewardedAdManager`) grant bonus daily quota via
   `UsageRepository.grantBonus`. The `AD_ID` permission was previously stripped with
   `tools:node="remove"`; it is now restored (personalised ads need it), so the Play
