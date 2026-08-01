@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.aistudyscanner.agent.ads.RewardedAdManager
+import com.aistudyscanner.agent.billing.BillingManager
 import com.aistudyscanner.agent.messaging.StudyMessagingService
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
@@ -26,6 +27,10 @@ class AIStudyScannerApplication : Application() {
                 .build()
         )
         MobileAds.initialize(this) { RewardedAdManager.preload(this) }
+
+        // Connect to Play Billing early so a paying user is never metered while the
+        // handshake completes, and so a lapsed subscription is revoked promptly.
+        BillingManager.start(this)
 
         // Sentry (enabled only if DSN is provided via BuildConfig.SENTRY_DSN)
         val dsn = BuildConfig.SENTRY_DSN

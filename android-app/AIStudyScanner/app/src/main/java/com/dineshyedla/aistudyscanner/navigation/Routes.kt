@@ -11,4 +11,5 @@ object Routes {
     const val PLANNER = "planner"
     const val NEWS_AGENT = "news_agent"
     const val PROFILE = "profile"
+    const val UPGRADE = "upgrade"
 }

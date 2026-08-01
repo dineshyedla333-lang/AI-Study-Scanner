@@ -25,6 +25,7 @@ import com.aistudyscanner.agent.screens.PlannerScreen
 import com.aistudyscanner.agent.screens.ProfileScreen
 import com.aistudyscanner.agent.screens.ScannerScreen
 import com.aistudyscanner.agent.screens.SolutionScreen
+import com.aistudyscanner.agent.screens.UpgradeScreen
 import com.aistudyscanner.agent.utils.runOcr
 
 @Composable
@@ -107,6 +108,7 @@ fun AIStudyScannerApp() {
                     navController.navigate(Routes.PLANNER)
                 },
                 onProfile = { navController.navigate(Routes.PROFILE) },
+                onUpgrade = { navController.navigate(Routes.UPGRADE) },
                 onExplainPage = { navController.navigate(Routes.EXPLAIN) },
                 onHistory = { navController.navigate(Routes.HISTORY) },
             )
@@ -139,6 +141,7 @@ fun AIStudyScannerApp() {
                 ?.savedStateHandle?.get<String>("board") ?: "Auto"
             SolutionScreen(
                 onBack = { navController.popBackStack() },
+                onUpgrade = { navController.navigate(Routes.UPGRADE) },
                 extractedText = extractedText,
                 initialExamMode = examMode,
                 board = board,
@@ -168,6 +171,10 @@ fun AIStudyScannerApp() {
 
         composable(Routes.NEWS_AGENT) {
             NewsAgentScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.UPGRADE) {
+            UpgradeScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.PROFILE) {

@@ -40,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -65,6 +66,7 @@ import com.aistudyscanner.agent.network.AgentStepResponse
 @Composable
 fun SolutionScreen(
     onBack: () -> Unit,
+    onUpgrade: () -> Unit = {},
     extractedText: String,
     initialExamMode: Boolean = true,
     board: String = "Auto",
@@ -124,7 +126,7 @@ fun SolutionScreen(
             // Usage quota
             state.usage?.let { usage ->
                 Text(
-                    text = "Free today: ${usage.usedToday}/${usage.effectiveLimit} · ${usage.remainingToday} remaining",
+                    text = usage.label,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -183,6 +185,13 @@ fun SolutionScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Watch ad for +3 more today")
+                }
+
+                // The ad is the free way out; the subscription is the permanent one.
+                // Offering both at the moment of friction is where a paywall actually
+                // converts, rather than buried behind a menu.
+                TextButton(onClick = onUpgrade, modifier = Modifier.fillMaxWidth()) {
+                    Text("Or go Pro for unlimited solves")
                 }
             }
 

@@ -22,6 +22,7 @@ room = "2.6.1"
 firebaseBom = "33.5.1"
 playServicesAuth = "21.2.0"
 playServicesAds = "23.6.0"
+billing = "7.1.1"
 sentry = "8.51.0"
 
 [libraries]
@@ -66,6 +67,10 @@ firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging
 
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playServicesAds" }
+
+# Play Billing. Google sets a minimum version for new uploads and raises it yearly —
+# check the current floor before each release, because too old is a hard rejection.
+billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
 
 # sentry-android-core, not sentry-android: the latter drags in sentry-android-ndk,
 # whose libsentry.so / libsentry-android.so are still 4 KB aligned and break 16 KB

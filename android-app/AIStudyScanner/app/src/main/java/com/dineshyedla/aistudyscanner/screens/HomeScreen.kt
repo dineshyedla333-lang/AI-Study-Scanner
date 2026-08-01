@@ -26,6 +26,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aistudyscanner.agent.billing.BillingManager
 
 // Distinct, theme-friendly colors for the four main actions (white text on each).
 private val ScanColor = Color(0xFF6750A4) // brand purple
@@ -52,6 +54,7 @@ fun HomeScreen(
     onNewsAgent: () -> Unit,
     onPlanner: (board: String) -> Unit,
     onProfile: () -> Unit,
+    onUpgrade: () -> Unit,
     onExplainPage: () -> Unit,
     onHistory: () -> Unit,
 ) {
@@ -183,6 +186,19 @@ fun HomeScreen(
                 ),
             ) {
                 Text("UPSC Live Agent — Daily Current Affairs")
+            }
+
+            // Pro upsell. Hidden once subscribed — nothing is more irritating than an
+            // app still selling you what you already pay for.
+            val isPro by BillingManager.isPro.collectAsState()
+            if (!isPro) {
+                OutlinedButton(
+                    onClick = onUpgrade,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp),
+                ) {
+                    Text("Go Pro — unlimited solves, no daily limit")
+                }
             }
 
             OutlinedButton(

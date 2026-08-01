@@ -2,6 +2,7 @@ package com.aistudyscanner.agent.usage
 
 import android.content.Context
 import com.aistudyscanner.agent.BuildConfig
+import com.aistudyscanner.agent.billing.ProPrefs
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -14,11 +15,26 @@ data class UsageStatus(
     val limitPerDay: Int,
     val consumedInThisCall: Boolean,
     val bonusToday: Int = 0,
+    /** Pro subscribers are not metered at all. */
+    val isPro: Boolean = false,
 ) {
     val effectiveLimit: Int get() = limitPerDay + bonusToday
     val remainingToday: Int get() = (effectiveLimit - usedToday).coerceAtLeast(0)
-    val isAllowed: Boolean get() = consumedInThisCall || usedToday < effectiveLimit
-    val limitReached: Boolean get() = usedToday >= effectiveLimit
+    val isAllowed: Boolean get() = isPro || consumedInThisCall || usedToday < effectiveLimit
+    val limitReached: Boolean get() = !isPro && usedToday >= effectiveLimit
+
+    /**
+     * Single source for the quota caption. It lives here because the same line was
+     * duplicated across four screens and three of them drifted — they divided by
+     * limitPerDay instead of effectiveLimit, so anyone who watched a rewarded ad
+     * saw a nonsense fraction like "7/2".
+     */
+    val label: String
+        get() = if (isPro) {
+            "Pro · unlimited"
+        } else {
+            "Free today: $usedToday/$effectiveLimit · $remainingToday remaining"
+        }
 }
 
 /**
@@ -57,6 +73,19 @@ class UsageRepository(
      * If limit is already reached, it DOES NOT increment and returns current status.
      */
     suspend fun tryConsumeOne(context: Context): UsageStatus {
+        // Pro subscribers skip metering entirely, so no Firestore round trip and no
+        // counter to grow. Read from ProPrefs rather than BillingManager's flow: the
+        // cache is populated before the billing connection completes, and Play
+        // overwrites it in both directions once it answers.
+        if (ProPrefs.isPro(context)) {
+            return UsageStatus(
+                usedToday = 0,
+                limitPerDay = limitPerDay,
+                consumedInThisCall = true,
+                isPro = true,
+            )
+        }
+
         val userId = resolveUserId(context)
         val day = todayKey()
         val docRef = db.collection("usage_daily").document(docId(userId, day))
