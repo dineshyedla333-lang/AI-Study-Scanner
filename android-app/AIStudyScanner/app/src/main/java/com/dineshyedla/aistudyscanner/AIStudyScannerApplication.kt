@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.os.Build
 import com.aistudyscanner.agent.ads.RewardedAdManager
 import com.aistudyscanner.agent.billing.BillingManager
+import com.aistudyscanner.agent.billing.ProPrefs
 import com.aistudyscanner.agent.messaging.StudyMessagingService
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
@@ -26,7 +27,14 @@ class AIStudyScannerApplication : Application() {
                 .setMaxAdContentRating(RequestConfiguration.MAX_AD_CONTENT_RATING_PG)
                 .build()
         )
-        MobileAds.initialize(this) { RewardedAdManager.preload(this) }
+        // Pro is sold as ad-free, so a subscriber never even initialises the ads SDK.
+        // Skipping it also means no Advertising ID is collected for them, which keeps
+        // the paywall's promise honest rather than merely hiding the ad button.
+        // Read from ProPrefs: it is synchronous and already populated, whereas the
+        // billing handshake has not run yet at this point.
+        if (!ProPrefs.isPro(this)) {
+            MobileAds.initialize(this) { RewardedAdManager.preload(this) }
+        }
 
         // Connect to Play Billing early so a paying user is never metered while the
         // handshake completes, and so a lapsed subscription is revoked promptly.

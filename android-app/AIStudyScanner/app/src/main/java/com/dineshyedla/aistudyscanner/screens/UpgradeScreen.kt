@@ -78,8 +78,8 @@ fun UpgradeScreen(onBack: () -> Unit) {
                             color = ProAccent,
                         )
                         Text(
-                            "Unlimited scans, home work, planners and current affairs. " +
-                                "No ads needed for extra solves.",
+                            "No ads, and no daily limit on scans, home work, planners or " +
+                                "current affairs.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -94,16 +94,30 @@ fun UpgradeScreen(onBack: () -> Unit) {
             }
 
             Text(
-                "Unlimited solves. No daily limit.",
+                "No ads. No daily limit.",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                "The free plan gives you 10 solves a day. Pro removes the limit across " +
-                    "every feature — scan and solve, Home Work, AI Study Planner and the " +
-                    "UPSC Live Agent — so you never stop mid-revision to watch an ad.",
+                "The free plan gives you 10 solves a day, and an ad to watch when you " +
+                    "run out. Pro removes both.",
                 style = MaterialTheme.typography.bodyMedium,
             )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    "No ads, ever",
+                    "Unlimited scan and solve",
+                    "Unlimited Home Work practice sets",
+                    "Unlimited AI Study Planner programs",
+                    "Unlimited UPSC current-affairs questions",
+                ).forEach { benefit ->
+                    Text(
+                        "•  $benefit",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
 
             if (offers.isEmpty()) {
                 Text(

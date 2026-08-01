@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.util.Log
 import com.aistudyscanner.agent.BuildConfig
+import com.aistudyscanner.agent.billing.ProPrefs
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -31,6 +32,10 @@ object RewardedAdManager {
     val isReady: Boolean get() = rewardedAd != null
 
     fun preload(context: Context) {
+        // Pro is sold partly as "no ads", so never fetch one for a subscriber. The
+        // paywall claim has to be true even in the places a user cannot see —
+        // requesting an ad still touches the Advertising ID.
+        if (ProPrefs.isPro(context)) return
         if (rewardedAd != null || isLoading) return
         isLoading = true
         RewardedAd.load(

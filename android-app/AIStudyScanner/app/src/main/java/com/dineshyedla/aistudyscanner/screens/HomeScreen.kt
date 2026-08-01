@@ -197,7 +197,7 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(16.dp),
                 ) {
-                    Text("Go Pro — unlimited solves, no daily limit")
+                    Text("Go Pro — remove ads, unlimited solves")
                 }
             }
 
