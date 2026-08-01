@@ -144,7 +144,7 @@ fun HomeworkScreen(
 
             state.usage?.let { usage ->
                 Text(
-                    text = "Free today: ${usage.usedToday}/${usage.limitPerDay} · ${usage.remainingToday} remaining",
+                    text = "Free today: ${usage.usedToday}/${usage.effectiveLimit} · ${usage.remainingToday} remaining",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
