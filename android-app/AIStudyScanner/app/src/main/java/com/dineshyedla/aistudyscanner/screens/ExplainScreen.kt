@@ -172,7 +172,9 @@ fun ExplainScreen(onBack: () -> Unit) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "You can solve 10 questions per day for free. The counter resets at midnight every day.",
+                        text = "You can solve 10 questions per day for free, and the " +
+                            "counter resets at midnight. Run out early? Watch a short " +
+                            "ad for 3 more, or go Pro for unlimited solves with no ads.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

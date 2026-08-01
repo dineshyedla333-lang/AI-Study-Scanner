@@ -1,6 +1,8 @@
 package com.aistudyscanner.agent.screens
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -84,9 +86,25 @@ fun UpgradeScreen(onBack: () -> Unit) {
                         )
                     }
                 }
+                // A real link, not just instructions. Play expects cancelling to be
+                // easy to find, and a subscriber who cannot find it asks Google for a
+                // refund and leaves a one-star review instead.
+                OutlinedButton(
+                    onClick = {
+                        val url = "https://play.google.com/store/account/subscriptions" +
+                            "?sku=${BillingManager.PRODUCT_ID_PRO}" +
+                            "&package=${context.packageName}"
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Manage or cancel subscription")
+                }
                 Text(
-                    "Manage or cancel any time in the Play Store under " +
-                        "Payments and subscriptions.",
+                    "Cancelling stops future renewals. You keep Pro until the end of the " +
+                        "period you have already paid for.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
