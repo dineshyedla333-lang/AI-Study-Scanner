@@ -143,7 +143,7 @@ dependencies {
     implementation(libs.play.services.ads)
 
     // Play Billing (Pro subscription — unlimited solves)
-    implementation(libs.billing.ktx)
+    implementation(libs.billing)
 
     // Sentry (error monitoring)
     implementation(libs.sentry.android)

@@ -44,6 +44,7 @@ private val ProAccent = Color(0xFF00838F)
 fun UpgradeScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val isPro by BillingManager.isPro.collectAsState()
+    val paymentPending by BillingManager.isPaymentPending.collectAsState()
     val offers by BillingManager.offers.collectAsState()
     val error by BillingManager.lastError.collectAsState()
 
@@ -137,7 +138,30 @@ fun UpgradeScreen(onBack: () -> Unit) {
                 }
             }
 
-            if (offers.isEmpty()) {
+            if (paymentPending) {
+                // Play accepted the order but hasn't secured the payment. Without
+                // this the sheet closes, nothing changes, and the user either buys
+                // again or assumes it failed. Plans are hidden so they can't.
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = ProAccent.copy(alpha = 0.12f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "Payment processing",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = ProAccent,
+                        )
+                        Text(
+                            "Google Play is still confirming your payment. Pro unlocks on " +
+                                "its own once it goes through — there's nothing more to do, " +
+                                "and no need to buy again.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            } else if (offers.isEmpty()) {
                 Text(
                     error ?: "Loading plans…",
                     style = MaterialTheme.typography.bodyMedium,

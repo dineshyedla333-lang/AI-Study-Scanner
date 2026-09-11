@@ -22,7 +22,7 @@ room = "2.6.1"
 firebaseBom = "33.5.1"
 playServicesAuth = "21.2.0"
 playServicesAds = "23.6.0"
-billing = "7.1.1"
+billing = "9.1.0"
 sentry = "8.51.0"
 
 [libraries]
@@ -70,7 +70,10 @@ play-services-ads = { group = "com.google.android.gms", name = "play-services-ad
 
 # Play Billing. Google sets a minimum version for new uploads and raises it yearly —
 # check the current floor before each release, because too old is a hard rejection.
-billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
+# Plain `billing`, not `billing-ktx`: the ktx wrapper only adds coroutine extension
+# functions we don't use, and from 9.x it declares kotlin-stdlib 2.2, which drags the
+# whole app's stdlib past what Room 2.6's kapt processor can read (metadata <= 2.0).
+billing = { group = "com.android.billingclient", name = "billing", version.ref = "billing" }
 
 # sentry-android-core, not sentry-android: the latter drags in sentry-android-ndk,
 # whose libsentry.so / libsentry-android.so are still 4 KB aligned and break 16 KB

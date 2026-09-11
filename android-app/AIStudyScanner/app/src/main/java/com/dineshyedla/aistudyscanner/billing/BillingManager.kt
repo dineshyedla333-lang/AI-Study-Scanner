@@ -8,6 +8,7 @@ import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
+import com.android.billingclient.api.PendingPurchasesParams
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
@@ -28,6 +29,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * billing connection before they can use the app. Play remains the source of
  * truth: every successful [queryPurchases] overwrites the cache in both
  * directions, so a lapsed subscription loses access on the next connection.
+ * [queryPurchases] also runs on every `onResume`, so a subscription bought or
+ * cancelled in the Play Store app is reflected without restarting.
  *
  * NOTE: this is a client-side check only. A determined user can defeat it. That
  * matches the existing posture of the daily quota, which is also client-enforced.
@@ -53,6 +56,14 @@ object BillingManager {
     private val _offers = MutableStateFlow<List<SubscriptionOffer>>(emptyList())
     val offers: StateFlow<List<SubscriptionOffer>> = _offers.asStateFlow()
 
+    /**
+     * True while Play has accepted a Pro order but has not yet secured the payment.
+     * Nothing is granted in this state. It exists so the paywall can say
+     * "processing" instead of looking as though the purchase silently failed.
+     */
+    private val _isPaymentPending = MutableStateFlow(false)
+    val isPaymentPending: StateFlow<Boolean> = _isPaymentPending.asStateFlow()
+
     /** Null until a query completes; set so the paywall can explain itself. */
     private val _lastError = MutableStateFlow<String?>(null)
     val lastError: StateFlow<String?> = _lastError.asStateFlow()
@@ -75,19 +86,29 @@ object BillingManager {
         }
     }
 
-    /** Safe to call more than once; later calls are no-ops while connected. */
+    /** Safe to call more than once; later calls only re-query. */
     fun start(context: Context) {
         appContext = context.applicationContext
         _isPro.value = ProPrefs.isPro(context)
 
-        if (client?.isReady == true) {
+        if (client != null) {
             queryPurchases()
             return
         }
 
         val c = BillingClient.newBuilder(context.applicationContext)
             .setListener(purchasesListener)
-            .enablePendingPurchases()
+            // PBL 8 removed the no-arg overload; enableOneTimeProducts() is its exact
+            // equivalent. Play only supports pending payment on one-time products and
+            // prepaid plans, and both Pro plans are auto-renewing, so for `pro` this is
+            // required boilerplate rather than an opt-in.
+            .enablePendingPurchases(
+                PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
+            )
+            // After a drop, the library reconnects inside the next API call. Without
+            // this a lost connection meant no billing until the process restarted,
+            // because start() only runs from Application.onCreate.
+            .enableAutoServiceReconnection()
             .build()
         client = c
 
@@ -103,8 +124,9 @@ object BillingManager {
             }
 
             override fun onBillingServiceDisconnected() {
-                // Reconnect lazily on the next start() rather than looping here.
-                Log.w(TAG, "Billing service disconnected")
+                // enableAutoServiceReconnection() handles this on the next call;
+                // nothing to retry here.
+                Log.w(TAG, "Billing service disconnected; will reconnect on next call")
             }
         })
     }
@@ -122,17 +144,22 @@ object BillingManager {
             )
             .build()
 
-        c.queryProductDetailsAsync(params) { result, list ->
+        c.queryProductDetailsAsync(params) { result, queryResult ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                 Log.w(TAG, "queryProductDetails failed: ${result.debugMessage}")
                 _lastError.value = "Couldn't load subscription prices."
                 return@queryProductDetailsAsync
             }
-            val details = list.firstOrNull { it.productId == PRODUCT_ID_PRO }
+            val details = queryResult.productDetailsList
+                .firstOrNull { it.productId == PRODUCT_ID_PRO }
             if (details == null) {
-                // Almost always means the product is missing or not yet active in
-                // Play Console, which is silent otherwise and easy to misdiagnose.
-                Log.w(TAG, "Product '$PRODUCT_ID_PRO' not found — is it active in Play Console?")
+                // PBL 8+ says why a product came back empty instead of dropping it
+                // silently. Almost always: not created, or not yet active, in Play
+                // Console — which is easy to misdiagnose without this.
+                val why = queryResult.unfetchedProductList
+                    .joinToString { "${it.productId}: status ${it.statusCode}" }
+                    .ifEmpty { "not in response" }
+                Log.w(TAG, "Product '$PRODUCT_ID_PRO' unavailable ($why) — is it active in Play Console?")
                 _lastError.value = "Subscriptions aren't available yet. Please try again later."
                 return@queryProductDetailsAsync
             }
@@ -165,9 +192,16 @@ object BillingManager {
             .sortedBy { it.priceMicros }
     }
 
+    /**
+     * Refreshes entitlement from Play. Called after setup and from `onResume`.
+     *
+     * Deliberately no `isReady` guard: auto reconnection re-establishes a dropped
+     * connection inside this call, and bailing early would prevent exactly that.
+     * Before the first connection completes it answers SERVICE_DISCONNECTED, which is
+     * harmless — onBillingSetupFinished queries again.
+     */
     fun queryPurchases() {
         val c = client ?: return
-        if (!c.isReady) return
         val params = QueryPurchasesParams.newBuilder()
             .setProductType(BillingClient.ProductType.SUBS)
             .build()
@@ -178,17 +212,32 @@ object BillingManager {
             }
             val entitled = purchases.any { it.grantsPro() }
             purchases.forEach { handlePurchase(it) }
-            // Authoritative: also revokes when a subscription has lapsed.
+            // Authoritative in both directions: revokes when a subscription has
+            // lapsed, and clears "pending" once Play has cancelled or expired an
+            // order that never completed — it simply stops appearing here.
             setPro(entitled)
+            _isPaymentPending.value = !entitled && purchases.any { it.isPendingPro() }
         }
     }
 
+    private fun Purchase.isPro(): Boolean = products.contains(PRODUCT_ID_PRO)
+
     private fun Purchase.grantsPro(): Boolean =
-        products.contains(PRODUCT_ID_PRO) && purchaseState == Purchase.PurchaseState.PURCHASED
+        isPro() && purchaseState == Purchase.PurchaseState.PURCHASED
+
+    private fun Purchase.isPendingPro(): Boolean =
+        isPro() && purchaseState == Purchase.PurchaseState.PENDING
 
     private fun handlePurchase(purchase: Purchase) {
+        if (purchase.isPendingPro()) {
+            // Play accepted the order but the money is not secured yet. Never grant
+            // here; a later purchase update or queryPurchases() flips it to PURCHASED.
+            _isPaymentPending.value = true
+            return
+        }
         if (!purchase.grantsPro()) return
 
+        _isPaymentPending.value = false
         setPro(true)
 
         // Acknowledge within three days or Google refunds it automatically. This is
@@ -213,8 +262,9 @@ object BillingManager {
     /** Opens Play's purchase sheet. Returns false if billing isn't ready yet. */
     fun launchPurchase(activity: Activity, offer: SubscriptionOffer): Boolean {
         val c = client ?: return false
+        // A non-null productDetails means we have connected at least once; if the
+        // connection dropped since, auto reconnection restores it inside this call.
         val details = productDetails ?: return false
-        if (!c.isReady) return false
 
         val params = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(
