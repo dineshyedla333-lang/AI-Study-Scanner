@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Hand-converted from docs/app-icon.svg (512 canvas). The group scales the SVG
+  coordinates into the 108dp adaptive viewport and centres the artwork so it
+  sits inside the 66dp safe circle that every launcher mask keeps visible.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.13"
+        android:scaleY="0.13"
+        android:translateX="18.5"
+        android:translateY="18.8">
+
+        <!-- Camera body -->
+        <path
+            android:pathData="M156,145 H356 A30,30 0 0 1 386,175 V300 A30,30 0 0 1 356,330 H156 A30,30 0 0 1 126,300 V175 A30,30 0 0 1 156,145 Z"
+            android:strokeColor="#E8E8FF"
+            android:strokeWidth="18" />
+
+        <!-- Viewfinder bump -->
+        <path
+            android:pathData="M212,115 H288 A12,12 0 0 1 300,127 V143 A12,12 0 0 1 288,155 H212 A12,12 0 0 1 200,143 V127 A12,12 0 0 1 212,115 Z"
+            android:strokeColor="#E8E8FF"
+            android:strokeWidth="18" />
+
+        <!-- Lens ring -->
+        <path
+            android:pathData="M196,238 A60,60 0 1 0 316,238 A60,60 0 1 0 196,238 Z"
+            android:strokeColor="#E8E8FF"
+            android:strokeWidth="16" />
+
+        <!-- Lens -->
+        <path
+            android:pathData="M218,238 A38,38 0 1 0 294,238 A38,38 0 1 0 218,238 Z"
+            android:fillColor="#4A90D9" />
+        <path
+            android:pathData="M238,238 A18,18 0 1 0 274,238 A18,18 0 1 0 238,238 Z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.9" />
+
+        <!-- Flash dot -->
+        <path
+            android:pathData="M337,178 A11,11 0 1 0 359,178 A11,11 0 1 0 337,178 Z"
+            android:fillColor="#E8E8FF" />
+
+        <!-- Gold sparkles -->
+        <path
+            android:pathData="M375,100 V140 M355,120 H395"
+            android:strokeColor="#FFD700"
+            android:strokeWidth="6"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M362,107 L388,133 M388,107 L362,133 M410,148 V168 M400,158 H420"
+            android:strokeColor="#FFD700"
+            android:strokeWidth="4"
+            android:strokeLineCap="round" />
+
+        <!-- AI badge pill -->
+        <path
+            android:pathData="M187,365 H325 A39,39 0 0 1 364,404 A39,39 0 0 1 325,443 H187 A39,39 0 0 1 148,404 A39,39 0 0 1 187,365 Z"
+            android:fillColor="#FFD700" />
+
+        <!-- "A" -->
+        <path
+            android:pathData="M191,431 L213,375 L219,375 L243,431 L233,431 L216,383 L199,431 Z M201,408 h30 v9 h-30 Z"
+            android:fillColor="#1A1A2E" />
+
+        <!-- "I" -->
+        <path
+            android:pathData="M256,375 h42 v9 h-42 Z M272,375 h10 v56 h-10 Z M256,422 h42 v9 h-42 Z"
+            android:fillColor="#1A1A2E" />
+    </group>
+</vector>

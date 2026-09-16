@@ -9,8 +9,8 @@ This release is **blocked**, not merely unfinished. Publishing it early ships a
 paywall that cannot take money.
 
 1. **Create and ACTIVATE the subscription** — `Monetise with Play → Products →
-   Subscriptions`. Product `pro`, base plans `monthly` (₹99) and `yearly` (₹399), both
-   auto-renewing. Full detail in `SUBSCRIPTION_SETUP.md`.
+   Subscriptions`. Product `pro`, base plans `monthly-autorenew` (₹99) and
+   `yearly-autorenew` (₹399), both auto-renewing. Full detail in `SUBSCRIPTION_SETUP.md`.
    Without this, tapping *Go Pro* shows "Subscriptions aren't available yet" — verified
    on device, it fails gracefully, but it sells nothing.
 2. **Content rating: declare digital purchases.** You answered "purchase digital

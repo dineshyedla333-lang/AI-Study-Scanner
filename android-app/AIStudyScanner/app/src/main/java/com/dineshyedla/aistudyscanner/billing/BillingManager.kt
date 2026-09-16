@@ -43,9 +43,10 @@ object BillingManager {
     /** Must match the subscription product id created in Play Console. */
     const val PRODUCT_ID_PRO = "pro"
 
-    /** Base plan ids inside that product. */
-    const val BASE_PLAN_MONTHLY = "monthly"
-    const val BASE_PLAN_YEARLY = "yearly"
+    /** Base plan ids inside that product, exactly as created in Play Console. */
+    const val BASE_PLAN_MONTHLY = "monthly-autorenew"
+    const val BASE_PLAN_YEARLY = "yearly-autorenew"
+    private val KNOWN_BASE_PLANS = setOf(BASE_PLAN_MONTHLY, BASE_PLAN_YEARLY)
 
     private var client: BillingClient? = null
     private var appContext: Context? = null
@@ -170,13 +171,27 @@ object BillingManager {
     }
 
     /**
-     * One entry per base plan. Free-trial and intro offers add extra entries for the
-     * same base plan, so keep the cheapest first-phase price per plan — that is what
-     * the user actually pays first, and what the paywall should show.
+     * One entry per base plan, for the two auto-renewing plans the paywall sells.
+     * Free-trial and intro offers add extra entries for the same base plan, so keep
+     * the cheapest first-phase price per plan — that is what the user actually pays
+     * first, and what the paywall should show.
+     *
+     * Only [KNOWN_BASE_PLANS] are shown, so a plan added later in Play Console (a
+     * prepaid one, say) does not appear on the paywall unannounced. If none match —
+     * the ids were renamed in Console without updating the constants — fall back to
+     * everything Play returned rather than show an empty paywall, and log it.
      */
     private fun ProductDetails.toOffers(): List<SubscriptionOffer> {
         val all = subscriptionOfferDetails ?: return emptyList()
-        return all.mapNotNull { offer ->
+        val known = all.filter { it.basePlanId in KNOWN_BASE_PLANS }
+        if (known.isEmpty()) {
+            Log.w(
+                TAG,
+                "No offers for base plans $KNOWN_BASE_PLANS; Play returned " +
+                    all.map { it.basePlanId }.distinct() + ". Check the ids in Play Console.",
+            )
+        }
+        return known.ifEmpty { all }.mapNotNull { offer ->
             val firstPhase = offer.pricingPhases.pricingPhaseList.firstOrNull()
                 ?: return@mapNotNull null
             SubscriptionOffer(
@@ -296,7 +311,10 @@ data class SubscriptionOffer(
     /** ISO 8601 period, e.g. P1M or P1Y. */
     val billingPeriod: String,
 ) {
-    val isYearly: Boolean get() = billingPeriod.contains("Y")
+    /** The base plan id is authoritative; the period is the fallback for unknown ids. */
+    val isYearly: Boolean
+        get() = basePlanId == BillingManager.BASE_PLAN_YEARLY ||
+            (basePlanId != BillingManager.BASE_PLAN_MONTHLY && billingPeriod.contains("Y"))
 
     val periodLabel: String
         get() = when {

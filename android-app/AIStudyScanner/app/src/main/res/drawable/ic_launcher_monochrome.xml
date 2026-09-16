@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Single-colour silhouette for Android 13+ themed icons: the launcher tints this
+  itself, so only the alpha matters. Same geometry as ic_launcher_foreground.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.13"
+        android:scaleY="0.13"
+        android:translateX="18.5"
+        android:translateY="18.8">
+        <path
+            android:pathData="M156,145 H356 A30,30 0 0 1 386,175 V300 A30,30 0 0 1 356,330 H156 A30,30 0 0 1 126,300 V175 A30,30 0 0 1 156,145 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="18" />
+        <path
+            android:pathData="M212,115 H288 A12,12 0 0 1 300,127 V143 A12,12 0 0 1 288,155 H212 A12,12 0 0 1 200,143 V127 A12,12 0 0 1 212,115 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="18" />
+        <path
+            android:pathData="M196,238 A60,60 0 1 0 316,238 A60,60 0 1 0 196,238 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="16" />
+        <path
+            android:pathData="M238,238 A18,18 0 1 0 274,238 A18,18 0 1 0 238,238 Z"
+            android:fillColor="#FFFFFF" />
+        <path
+            android:pathData="M337,178 A11,11 0 1 0 359,178 A11,11 0 1 0 337,178 Z"
+            android:fillColor="#FFFFFF" />
+        <path
+            android:pathData="M375,100 V140 M355,120 H395"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="6"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M187,365 H325 A39,39 0 0 1 364,404 A39,39 0 0 1 325,443 H187 A39,39 0 0 1 148,404 A39,39 0 0 1 187,365 Z"
+            android:fillColor="#FFFFFF" />
+    </group>
+</vector>

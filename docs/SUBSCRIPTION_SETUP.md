@@ -28,11 +28,14 @@ letting Play handle switching between plans.
 
 | Base plan ID | Type | Billing period | Price (India) |
 |---|---|---|---|
-| `monthly` | Auto-renewing | 1 month | ₹99 |
-| `yearly` | Auto-renewing | 1 year | ₹399 |
+| `monthly-autorenew` | Auto-renewing | 1 month | ₹99 |
+| `yearly-autorenew` | Auto-renewing | 1 year | ₹399 |
 
-The IDs must be exactly `monthly` and `yearly` — they match
-`BillingManager.BASE_PLAN_MONTHLY` / `BASE_PLAN_YEARLY`.
+The IDs must be exactly `monthly-autorenew` and `yearly-autorenew` — they match
+`BillingManager.BASE_PLAN_MONTHLY` / `BASE_PLAN_YEARLY`, and the paywall only lists
+offers for those two base plans. Prices are never hardcoded in the app: the paywall
+shows the `formattedPrice` Play returns from `queryProductDetailsAsync`, so a price
+change in Console shows up on the next app launch with no release.
 
 **Activate both base plans.** A saved-but-inactive plan is invisible to the app, and
 this is the single most common reason a paywall looks broken.
