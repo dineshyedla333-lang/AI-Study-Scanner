@@ -17,7 +17,15 @@ class Settings:
 
     # Groq
     groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    # Groq retired the whole Llama family (llama-3.3-70b-versatile returned
+    # model_not_found from 2026-09) — every solve 502'd in production until this
+    # moved. gpt-oss-120b is the closest replacement in capability and cost.
+    groq_model: str = "openai/gpt-oss-120b"
+    # gpt-oss is a reasoning model: its thinking tokens count against max_tokens,
+    # and at the default effort a 150-token classify call is all reasoning and no
+    # answer. "low" keeps outputs inside the existing budgets. Set to "" to omit
+    # the parameter for models that treat it as "turn thinking on" (e.g. qwen).
+    groq_reasoning_effort: str = "low"
     groq_timeout_s: float = 30.0
     groq_temperature_exam: float = 0.2
     groq_temperature_default: float = 0.35
@@ -68,7 +76,10 @@ def load_settings() -> Settings:
         log_level=os.getenv("LOG_LEVEL", Settings.log_level),
         env=os.getenv("ENV", Settings.env),
         groq_api_key=os.getenv("GROQ_API_KEY"),
-        groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        groq_model=os.getenv("GROQ_MODEL", Settings.groq_model),
+        groq_reasoning_effort=os.getenv(
+            "GROQ_REASONING_EFFORT", Settings.groq_reasoning_effort
+        ).strip(),
         groq_timeout_s=float(os.getenv("GROQ_TIMEOUT_S", "30.0")),
         groq_temperature_exam=float(
             os.getenv("GROQ_TEMPERATURE_EXAM", "0.2")

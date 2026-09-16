@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -97,15 +98,20 @@ def _call_groq(
     temperature: float,
     max_tokens: int,
     timeout: float,
+    reasoning_effort: str = "",
 ) -> tuple[str, int]:
     """Single Groq call. Returns (text, latency_ms)."""
     started = time.perf_counter()
+    extra: dict[str, str] = {}
+    if reasoning_effort:
+        extra["reasoning_effort"] = reasoning_effort
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
         max_tokens=max_tokens,
         timeout=timeout,
+        **extra,
     )
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     text = (resp.choices[0].message.content or "").strip()
@@ -136,6 +142,7 @@ def solve_gemini(
         ),
         max_tokens=settings.groq_max_output_tokens,
         timeout=settings.groq_timeout_s,
+        reasoning_effort=settings.groq_reasoning_effort,
     )
 
     return SolveResult(
@@ -171,8 +178,10 @@ def solve_agentic(
         model=settings.groq_model,
         prompt=classify_prompt,
         temperature=0.1,
-        max_tokens=150,
+        # Room for a reasoning model's thinking plus the JSON; 150 truncated it.
+        max_tokens=300,
         timeout=settings.groq_timeout_s,
+        reasoning_effort=settings.groq_reasoning_effort,
     )
     steps.append(AgentStep(name="Classify", output=classify_text, latency_ms=classify_ms))
 
@@ -222,6 +231,7 @@ def solve_agentic(
         ),
         max_tokens=settings.groq_max_output_tokens,
         timeout=settings.groq_timeout_s,
+        reasoning_effort=settings.groq_reasoning_effort,
     )
     steps.append(AgentStep(name="Solve", output=solve_text, latency_ms=solve_ms))
 
@@ -233,6 +243,10 @@ def solve_agentic(
         answer=solve_text,
         total_latency_ms=total_ms,
     )
+
+
+# A backslash not followed by one of JSON's legal escape characters.
+_JSON_BAD_ESCAPE = re.compile(r'\\(?![\\/"bfnrtu])')
 
 
 def _parse_homework_json(text: str, count: int) -> list[HomeworkItem]:
@@ -247,7 +261,13 @@ def _parse_homework_json(text: str, count: int) -> list[HomeworkItem]:
     try:
         data = json.loads(raw)
     except Exception:
-        return []
+        # Science answers carry LaTeX (\times, \xrightarrow, \frac) and a
+        # single backslash before those letters is an invalid JSON escape.
+        # Double any backslash that does not start a legal escape and retry.
+        try:
+            data = json.loads(_JSON_BAD_ESCAPE.sub(r"\\\\", raw))
+        except Exception:
+            return []
     if not isinstance(data, list):
         return []
 
@@ -303,6 +323,7 @@ def generate_homework(
         temperature=settings.groq_temperature_default,
         max_tokens=settings.groq_homework_max_output_tokens,
         timeout=settings.groq_homework_timeout_s,
+        reasoning_effort=settings.groq_reasoning_effort,
     )
 
     items = _parse_homework_json(text, count)
@@ -399,6 +420,7 @@ def generate_study_plan(
         temperature=settings.groq_temperature_default,
         max_tokens=settings.groq_planner_max_output_tokens,
         timeout=settings.groq_planner_timeout_s,
+        reasoning_effort=settings.groq_reasoning_effort,
     )
 
     overview, plan = _parse_planner_json(text, months)

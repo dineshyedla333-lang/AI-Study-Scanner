@@ -142,6 +142,7 @@ def generate_news_qna(
         temperature=0.3,
         max_tokens=settings.groq_homework_max_output_tokens,
         timeout=settings.groq_homework_timeout_s,
+        reasoning_effort=settings.groq_reasoning_effort,
     )
 
     parsed = _parse_homework_json(text, count)

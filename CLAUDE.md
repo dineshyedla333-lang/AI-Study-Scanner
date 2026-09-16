@@ -6,7 +6,7 @@ Guidance for Claude Code when working in this repository.
 An AI-powered study helper for Indian school / entrance-exam students. Live on
 Google Play in **Production** as **"AI Study Scan Agent"**
 (`com.aistudyscanner.agent`) — ~10 installs as of 1 Aug 2026.
-- **Backend** — FastAPI service using **Groq** (`llama-3.3-70b-versatile`) as the
+- **Backend** — FastAPI service using **Groq** (`openai/gpt-oss-120b`; Groq retired all Llama models Sep 2026) as the
   LLM. It answers exam questions (single-shot and agentic), generates practice
   **Home Work**, builds month-by-month **AI Study Planner** programs, and produces
   daily **UPSC current-affairs** Q&A delivered via FCM push. Includes slowapi rate
@@ -91,7 +91,8 @@ cd ai-study-scanner\backend
 
 ## Environment variables / secrets
 Loaded from a local `.env` in `ai-study-scanner/backend/` (template: `.env.example`).
-- `GROQ_API_KEY` (required), `GROQ_MODEL` (default `llama-3.3-70b-versatile`)
+- `GROQ_API_KEY` (required), `GROQ_MODEL` (default `openai/gpt-oss-120b` — Groq retired the Llama family Sep 2026),
+  `GROQ_REASONING_EFFORT` (default `low`; reasoning tokens count against `max_tokens`)
 - `GROQ_TIMEOUT_S`, `GROQ_TEMPERATURE_EXAM`, `GROQ_TEMPERATURE_DEFAULT`,
   `GROQ_MAX_OUTPUT_TOKENS`, `GROQ_HOMEWORK_MAX_OUTPUT_TOKENS`, `GROQ_HOMEWORK_TIMEOUT_S`,
   `GROQ_PLANNER_MAX_OUTPUT_TOKENS` (default 4096), `GROQ_PLANNER_TIMEOUT_S` (default 60)
