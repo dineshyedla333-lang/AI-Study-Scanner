@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+import os
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from dotenv import load_dotenv
-import os
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,48 @@ def load_settings() -> Settings:
         cron_secret=os.getenv("CRON_SECRET"),
         firebase_credentials_json=os.getenv("FIREBASE_CREDENTIALS_JSON"),
     )
+
+
+def ensure_model_available(settings: Settings) -> Settings:
+    """
+    Swap in the default model if the configured one no longer exists on Groq.
+
+    Groq retires models with little notice (the whole Llama family went in
+    Sep 2026) and a GROQ_MODEL pinned in the Render env group then outlives the
+    model — every solve 502s until someone edits the dashboard. Asking Groq once
+    at startup costs a few hundred ms and lets the service heal itself. Any
+    failure to check leaves the configuration exactly as it was.
+    """
+    if not settings.groq_api_key:
+        return settings
+    try:
+        from groq import Groq
+
+        available = {
+            m.id for m in Groq(api_key=settings.groq_api_key).models.list().data
+        }
+    except Exception as exc:  # network, auth, SDK — never block startup on it
+        logging.getLogger("ai-study-scanner").warning(
+            "Could not verify GROQ_MODEL against Groq: %s", exc
+        )
+        return settings
+    if not available or settings.groq_model in available:
+        return settings
+    fallback = Settings.groq_model
+    if fallback not in available:
+        logging.getLogger("ai-study-scanner").error(
+            "GROQ_MODEL %r is unavailable and so is the default %r",
+            settings.groq_model,
+            fallback,
+        )
+        return settings
+    logging.getLogger("ai-study-scanner").warning(
+        "GROQ_MODEL %r is not available on Groq; using %r instead. "
+        "Update GROQ_MODEL in the environment.",
+        settings.groq_model,
+        fallback,
+    )
+    return replace(settings, groq_model=fallback)
 
 
 def _parse_feeds(raw: str | None) -> tuple[str, ...]:

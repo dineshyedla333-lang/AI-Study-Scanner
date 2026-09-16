@@ -37,7 +37,7 @@ from ai_solver import (
     solve_agentic,
     solve_gemini,
 )
-from config import load_settings
+from config import ensure_model_available, load_settings
 from cost_utils import TTLCache, cache_key_for, normalize_question_text
 from news import NewsResult, NewsUnavailableError, generate_news_qna
 import notifications
@@ -50,6 +50,8 @@ logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
+# After logging is up, so the fallback warning is actually seen on Render.
+settings = ensure_model_available(settings)
 logger = logging.getLogger("ai-study-scanner")
 solve_cache = TTLCache(
     max_size=settings.solve_cache_max_size,
