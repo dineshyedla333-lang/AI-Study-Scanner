@@ -243,7 +243,15 @@ class SimpleStatus(BaseModel):
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "app": settings.app_name, "env": settings.env, "v": "3"}
+    # `model` shows which Groq model this deploy is actually using, so a retired
+    # model or a stale GROQ_MODEL override on Render is visible without a solve.
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "env": settings.env,
+        "v": "4",
+        "model": settings.groq_model,
+    }
 
 
 @app.exception_handler(Exception)
