@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aistudyscanner.agent.ads.RewardedAdManager
 import com.aistudyscanner.agent.network.AgentStepResponse
+import com.aistudyscanner.agent.ui.MathMarkdown
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -278,11 +279,13 @@ fun SolutionScreen(
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 ) {
-                    Text(
-                        text = ans,
+                    // The model answers in Markdown with LaTeX (\( \), ^{}, \frac);
+                    // typeset it instead of showing the raw source. Copy/Share
+                    // below still use the raw text.
+                    MathMarkdown(
+                        markdown = ans,
                         modifier = Modifier.padding(14.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
 
