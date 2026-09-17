@@ -1,8 +1,11 @@
 package com.aistudyscanner.agent.network
 
 import com.google.gson.annotations.SerializedName
+import okhttp3.MultipartBody
 import retrofit2.http.Body
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 
 data class SolveRequest(
     @SerializedName("question_text") val question_text: String,
@@ -30,6 +33,16 @@ data class AgenticSolveResponse(
     @SerializedName("steps") val steps: List<AgentStepResponse>,
     @SerializedName("answer") val answer: String,
     @SerializedName("total_latency_ms") val total_latency_ms: Int,
+    // The question after the server repaired OCR errors; null from older servers.
+    @SerializedName("interpreted_question") val interpreted_question: String? = null,
+)
+
+/** Result of the server-side math OCR (Mathpix) used for Pro scans. */
+data class OcrResponse(
+    @SerializedName("provider") val provider: String,
+    @SerializedName("text") val text: String,
+    @SerializedName("confidence") val confidence: Double,
+    @SerializedName("latency_ms") val latency_ms: Int,
 )
 
 data class HomeworkRequest(
@@ -135,4 +148,8 @@ interface AiStudyApi {
 
     @POST("news/unsubscribe")
     suspend fun unsubscribe(@Body body: UnsubscribeRequest): SimpleStatus
+
+    @Multipart
+    @POST("ocr")
+    suspend fun ocr(@Part image: MultipartBody.Part): OcrResponse
 }

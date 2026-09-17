@@ -195,6 +195,36 @@ fun SolutionScreen(
                 }
             }
 
+            // What the server actually solved, when it repaired OCR errors (t3 -> t^3,
+            // ó -> 6). Visible so a wrong guess can be fixed in the box above and
+            // re-solved, instead of a confidently wrong answer going unnoticed.
+            state.interpretedQuestion?.let { interpreted ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Interpreted as",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                        Text(
+                            text = interpreted,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                        Text(
+                            text = "Not right? Edit the question above and solve again.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+            }
+
             // AI-detected info chips (subject / difficulty / board)
             val detected = state.detected
             val chips = listOfNotNull(

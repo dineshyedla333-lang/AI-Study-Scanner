@@ -81,8 +81,8 @@ fun UpgradeScreen(onBack: () -> Unit) {
                             color = ProAccent,
                         )
                         Text(
-                            "No ads, and no daily limit on scans, home work, planners or " +
-                                "current affairs.",
+                            "No ads, precise maths scanning, and no daily limit on scans, " +
+                                "home work, planners or current affairs.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -126,6 +126,7 @@ fun UpgradeScreen(onBack: () -> Unit) {
                 listOf(
                     "No ads, ever",
                     "Unlimited scan and solve",
+                    "Precise maths scanning — reads powers, fractions and handwriting",
                     "Unlimited Home Work practice sets",
                     "Unlimited AI Study Planner programs",
                     "Unlimited UPSC current-affairs questions",

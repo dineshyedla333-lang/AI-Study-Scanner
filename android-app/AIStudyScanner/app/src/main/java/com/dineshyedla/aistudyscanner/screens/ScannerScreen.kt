@@ -39,11 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import com.aistudyscanner.agent.utils.runOcr
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
 import java.util.concurrent.Executor
 
@@ -198,21 +196,4 @@ private fun capturePhoto(
             override fun onError(exception: ImageCaptureException) = onError(exception)
         },
     )
-}
-
-private fun runOcr(
-    context: Context,
-    imageUri: Uri,
-    onTextExtracted: (String) -> Unit,
-    onError: (Exception) -> Unit,
-) {
-    try {
-        val image = InputImage.fromFilePath(context, imageUri)
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        recognizer.process(image)
-            .addOnSuccessListener { onTextExtracted(it.text.orEmpty().trim()) }
-            .addOnFailureListener { onError(it) }
-    } catch (e: Exception) {
-        onError(e)
-    }
 }

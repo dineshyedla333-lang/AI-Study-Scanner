@@ -33,6 +33,8 @@ data class SolutionUiState(
     val agentSteps: List<AgentStepResponse> = emptyList(),
     val detected: DetectedInfo = DetectedInfo(),
     val answer: String? = null,
+    /** Set only when the server repaired OCR errors and solved something different. */
+    val interpretedQuestion: String? = null,
     val error: String? = null,
     val usage: UsageStatus? = null,
 )
@@ -106,6 +108,7 @@ class SolutionViewModel(
             isLoading = true,
             error = null,
             answer = null,
+            interpretedQuestion = null,
             agentSteps = emptyList(),
             detected = DetectedInfo(),
             currentAgentStep = "Checking quota…",
@@ -155,6 +158,9 @@ class SolutionViewModel(
                     agentSteps = resp.steps,
                     detected = detected,
                     answer = resp.answer,
+                    interpretedQuestion = resp.interpreted_question
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() && normalise(it) != normalise(question) },
                 )
             } catch (e: HttpException) {
                 refund(context, debited)
@@ -193,6 +199,9 @@ class SolutionViewModel(
             )
         }
     }
+
+    /** Whitespace-insensitive compare, so a re-wrapped line is not "a correction". */
+    private fun normalise(s: String) = s.split(Regex("""\s+""")).joinToString(" ").trim()
 
     private fun parseClassification(classifyOutput: String): DetectedInfo {
         return try {
