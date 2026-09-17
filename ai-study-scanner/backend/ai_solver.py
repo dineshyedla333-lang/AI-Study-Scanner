@@ -51,6 +51,10 @@ class AgenticSolveResult:
     steps: list[AgentStep] = field(default_factory=list)
     answer: str = ""
     total_latency_ms: int = 0
+    # The question as the classifier repaired it from OCR noise; equals the
+    # input when nothing needed fixing. Shown to the student so a wrong guess
+    # is visible and editable rather than silently solved.
+    interpreted_question: str = ""
 
 
 @dataclass(frozen=True)
@@ -178,8 +182,9 @@ def solve_agentic(
         model=settings.groq_model,
         prompt=classify_prompt,
         temperature=0.1,
-        # Room for a reasoning model's thinking plus the JSON; 150 truncated it.
-        max_tokens=300,
+        # Room for a reasoning model's thinking, the JSON, and a full copy of
+        # the (possibly long) question in corrected_question.
+        max_tokens=900,
         timeout=settings.groq_timeout_s,
         reasoning_effort=settings.groq_reasoning_effort,
     )
@@ -208,6 +213,10 @@ def solve_agentic(
     norm_style = _normalize_answer_style(answer_style)
     mode_line = "exam mode on: keep steps short and direct." if exam_mode else ""
 
+    solve_question = _pick_corrected_question(
+        question_text, classification.get("corrected_question")
+    )
+
     # Step 2: Solve with plan
     solve_prompt = AGENT_SOLVE_PROMPT_TEMPLATE.format(
         subject=classification.get("subject", "General"),
@@ -218,7 +227,7 @@ def solve_agentic(
         exam_guide=EXAM_MODE_GUIDE[norm_exam],
         style_guide=ANSWER_STYLE_GUIDE[norm_style],
         mode_line=mode_line,
-        question_text=question_text,
+        question_text=solve_question,
     )
     solve_text, solve_ms = _call_groq(
         client,
@@ -242,7 +251,27 @@ def solve_agentic(
         steps=steps,
         answer=solve_text,
         total_latency_ms=total_ms,
+        interpreted_question=solve_question,
     )
+
+
+def _pick_corrected_question(original: str, corrected: object) -> str:
+    """
+    Use the classifier's OCR repair only when it looks like a repair.
+
+    A reconstruction that is much shorter or longer than the input is the model
+    summarising or elaborating, not fixing glyphs — solving that would answer a
+    different question than the one on the page, so fall back to the original.
+    """
+    if not isinstance(corrected, str):
+        return original
+    corrected = corrected.strip()
+    if not corrected:
+        return original
+    lo, hi = len(original) * 0.6, len(original) * 1.6 + 20
+    if not (lo <= len(corrected) <= hi):
+        return original
+    return corrected
 
 
 # A backslash not followed by one of JSON's legal escape characters.

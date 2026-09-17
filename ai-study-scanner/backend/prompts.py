@@ -22,6 +22,12 @@ CLASSIFY_PROMPT_TEMPLATE = (
     '  "exam_board": CBSE / JEE / NEET / EAMCET / Board\n'
     '  "approach":   one-line best strategy to solve this'
     ' (e.g. "Factoring: find two numbers that multiply to c and add to b")\n'
+    '  "corrected_question": the question exactly as the student intended.'
+    " The text comes from phone-camera OCR that drops superscripts and"
+    " confuses similar glyphs, so repair only what is clearly an OCR error:"
+    " x2->x^2, t3->t^3, ó/b->6, l/I->1, O->0, S->5, missing = or ^,"
+    " split lines. Keep every word and number that is plausible as written."
+    " If nothing needs fixing, copy the question verbatim.\n"
     "\nQuestion:\n{question_text}"
 )
 

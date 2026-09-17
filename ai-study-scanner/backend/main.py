@@ -152,6 +152,8 @@ class AgenticSolveResponse(BaseModel):
     steps: list[AgentStepResponse]
     answer: str
     total_latency_ms: int
+    # Question after OCR repair; optional so older cached results still serialise.
+    interpreted_question: str | None = None
 
 
 class HomeworkRequest(BaseModel):
@@ -382,6 +384,7 @@ def agent_solve_endpoint(
             ],
             answer=cached.answer,
             total_latency_ms=cached.total_latency_ms,
+            interpreted_question=cached.interpreted_question or None,
         )
 
     try:
@@ -423,6 +426,7 @@ def agent_solve_endpoint(
         ],
         answer=result.answer,
         total_latency_ms=result.total_latency_ms,
+        interpreted_question=result.interpreted_question or None,
     )
 
 
