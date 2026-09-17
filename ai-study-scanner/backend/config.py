@@ -60,6 +60,13 @@ class Settings:
     # Service-account JSON (string) for firebase-admin (FCM + Firestore).
     firebase_credentials_json: str | None = None
 
+    # Math OCR (Mathpix) for the Pro scan path. Unset -> /ocr answers 503 and
+    # the app keeps using on-device ML Kit, so this is safe to leave empty.
+    mathpix_app_id: str | None = None
+    mathpix_app_key: str | None = None
+    mathpix_timeout_s: float = 20.0
+    ocr_max_image_bytes: int = 3 * 1024 * 1024
+
 
 def load_settings() -> Settings:
     """
@@ -117,6 +124,12 @@ def load_settings() -> Settings:
         ),
         cron_secret=os.getenv("CRON_SECRET"),
         firebase_credentials_json=os.getenv("FIREBASE_CREDENTIALS_JSON"),
+        mathpix_app_id=os.getenv("MATHPIX_APP_ID"),
+        mathpix_app_key=os.getenv("MATHPIX_APP_KEY"),
+        mathpix_timeout_s=float(os.getenv("MATHPIX_TIMEOUT_S", "20.0")),
+        ocr_max_image_bytes=int(
+            os.getenv("OCR_MAX_IMAGE_BYTES", str(3 * 1024 * 1024))
+        ),
     )
 
 

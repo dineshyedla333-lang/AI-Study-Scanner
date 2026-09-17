@@ -7,3 +7,5 @@ prometheus-fastapi-instrumentator==7.0.2
 slowapi==0.1.9
 sentry-sdk==2.22.0
 firebase-admin==6.5.0
+# UploadFile (multipart) for POST /ocr
+python-multipart==0.0.20

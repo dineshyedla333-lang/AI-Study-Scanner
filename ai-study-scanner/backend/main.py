@@ -14,7 +14,7 @@ import os
 import re
 from typing import Literal
 
-from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -39,6 +39,7 @@ from ai_solver import (
 )
 from config import ensure_model_available, load_settings
 from cost_utils import TTLCache, cache_key_for, normalize_question_text
+from math_ocr import MathOcrError, MathOcrNotConfigured, recognize_math
 from news import NewsResult, NewsUnavailableError, generate_news_qna
 import notifications
 from notifications import LiveAgentNotConfigured
@@ -597,6 +598,63 @@ def _news_to_response(result: NewsResult) -> NewsResponse:
             NewsItemResponse(question=i.question, answer=i.answer)
             for i in result.items
         ],
+        latency_ms=result.latency_ms,
+    )
+
+
+class OcrResponse(BaseModel):
+    provider: Literal["mathpix"]
+    text: str
+    confidence: float
+    latency_ms: int
+
+
+@app.post("/ocr", response_model=OcrResponse)
+@limiter.limit(os.getenv("OCR_RATE_LIMIT", "6/minute"))
+async def ocr_endpoint(
+    request: Request, image: UploadFile = File(...)
+) -> OcrResponse:
+    """
+    Math-aware OCR for the Pro scan path. The app only calls this for Pro
+    users and falls back to on-device OCR on any non-200, so an unconfigured
+    or failing Mathpix degrades to today's behaviour rather than an error.
+
+    Entitlement is client-side (see BillingManager), so the real abuse limits
+    here are the per-IP rate limit and the image size cap.
+    """
+    content_type = (image.content_type or "").lower()
+    if content_type not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(status_code=415, detail="Send a JPEG, PNG or WebP image")
+    data = await image.read(settings.ocr_max_image_bytes + 1)
+    if len(data) > settings.ocr_max_image_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image larger than {settings.ocr_max_image_bytes // 1024} KB",
+        )
+    if not data:
+        raise HTTPException(status_code=422, detail="Empty image")
+
+    try:
+        result = recognize_math(data, content_type, settings)
+    except MathOcrNotConfigured:
+        raise HTTPException(status_code=503, detail="Math OCR is not enabled")
+    except MathOcrError as e:
+        logger.warning("Math OCR failed: %s", e)
+        raise HTTPException(status_code=502, detail="Math OCR provider error") from e
+
+    logger.info(
+        "Math OCR done",
+        extra={
+            "latency_ms": result.latency_ms,
+            "confidence": result.confidence,
+            "image_bytes": len(data),
+            "text_chars": len(result.text),
+        },
+    )
+    return OcrResponse(
+        provider="mathpix",
+        text=result.text,
+        confidence=result.confidence,
         latency_ms=result.latency_ms,
     )
 
