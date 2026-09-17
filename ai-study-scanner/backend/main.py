@@ -329,6 +329,14 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
             detail=f"Upstream AI provider error: {e}",
         ) from e
 
+    if not result.answer.strip():
+        # Never cache or return a blank: the app shows an empty box and the
+        # student's free solve is gone.
+        raise HTTPException(
+            status_code=502,
+            detail="AI did not return an answer. Please try again.",
+        )
+
     solve_cache.set(key, result)
 
     logger.info(
@@ -403,6 +411,14 @@ def agent_solve_endpoint(
             status_code=502,
             detail=f"Upstream AI provider error: {e}",
         ) from e
+
+    if not result.answer.strip():
+        # Never cache or return a blank: the app shows an empty box and the
+        # student's free solve is gone.
+        raise HTTPException(
+            status_code=502,
+            detail="AI did not return an answer. Please try again.",
+        )
 
     solve_cache.set(key, result)
     logger.info(

@@ -30,7 +30,9 @@ class Settings:
     groq_timeout_s: float = 30.0
     groq_temperature_exam: float = 0.2
     groq_temperature_default: float = 0.35
-    groq_max_output_tokens: int = 512
+    # Includes the reasoning model's thinking, not just the visible answer;
+    # 512 left nothing for the answer on a confusing question.
+    groq_max_output_tokens: int = 2048
     # Home Work generates many Q&A at once, so it needs a bigger budget.
     groq_homework_max_output_tokens: int = 3072
     groq_homework_timeout_s: float = 60.0
@@ -96,7 +98,7 @@ def load_settings() -> Settings:
             os.getenv("GROQ_TEMPERATURE_DEFAULT", "0.35")
         ),
         groq_max_output_tokens=int(
-            os.getenv("GROQ_MAX_OUTPUT_TOKENS", "512")
+            os.getenv("GROQ_MAX_OUTPUT_TOKENS", "2048")
         ),
         groq_homework_max_output_tokens=int(
             os.getenv("GROQ_HOMEWORK_MAX_OUTPUT_TOKENS", "3072")

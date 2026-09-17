@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -21,6 +22,9 @@ from prompts import (
     _normalize_answer_style,
     _normalize_exam_type,
 )
+
+
+logger = logging.getLogger("ai-study-scanner")
 
 
 def _is_auto_board(board: str | None) -> bool:
@@ -104,21 +108,47 @@ def _call_groq(
     timeout: float,
     reasoning_effort: str = "",
 ) -> tuple[str, int]:
-    """Single Groq call. Returns (text, latency_ms)."""
+    """
+    Single Groq call. Returns (text, latency_ms).
+
+    gpt-oss is a reasoning model and its hidden thinking counts against
+    max_tokens. A confusing input (garbled OCR, say) makes it think longer, and
+    when the budget runs out mid-thought the visible content is empty with
+    finish_reason "length" — which reached users as a blank answer box. On that
+    signature retry once with triple the budget; billing is per token used, so
+    the larger cap costs nothing on the calls that never needed it. Still empty
+    after that is an upstream failure, raised so the endpoint returns 502 (and
+    the app refunds the solve) instead of caching a blank.
+    """
     started = time.perf_counter()
     extra: dict[str, str] = {}
     if reasoning_effort:
         extra["reasoning_effort"] = reasoning_effort
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=temperature,
-        max_tokens=max_tokens,
-        timeout=timeout,
-        **extra,
-    )
+
+    def once(budget: int) -> tuple[str, str]:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=budget,
+            timeout=timeout,
+            **extra,
+        )
+        choice = resp.choices[0]
+        return (choice.message.content or "").strip(), choice.finish_reason or ""
+
+    text, finish = once(max_tokens)
+    if finish == "length" and len(text) < 40:
+        logger.warning(
+            "Groq output truncated by reasoning (budget %d); retrying with %d",
+            max_tokens, max_tokens * 3,
+        )
+        text, finish = once(min(max_tokens * 3, 8192))
     elapsed_ms = int((time.perf_counter() - started) * 1000)
-    text = (resp.choices[0].message.content or "").strip()
+    if not text:
+        raise RuntimeError(
+            f"model returned no content (finish_reason={finish or 'unknown'})"
+        )
     return text, elapsed_ms
 
 
@@ -183,8 +213,9 @@ def solve_agentic(
         prompt=classify_prompt,
         temperature=0.1,
         # Room for a reasoning model's thinking, the JSON, and a full copy of
-        # the (possibly long) question in corrected_question.
-        max_tokens=900,
+        # the (possibly long) question in corrected_question. Garbled OCR makes
+        # the model think noticeably longer, hence the generous cap.
+        max_tokens=1500,
         timeout=settings.groq_timeout_s,
         reasoning_effort=settings.groq_reasoning_effort,
     )
