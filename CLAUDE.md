@@ -75,7 +75,13 @@ cd ai-study-scanner\backend
 ## API endpoints
 - `POST /solve` — single-shot answer. Body: `{question_text, exam_mode, board?}`
 - `POST /solve/agent` — agentic (classify → solve); **the Android app uses this**.
-  Returns reasoning `steps` + `answer`.
+  Returns reasoning `steps` + `answer` + `interpreted_question` (the question after the
+  classifier repaired OCR errors such as `t3→t^3`, `ó→6`; the app shows it as
+  "Interpreted as" when it differs).
+- `POST /ocr` — multipart `image` (JPEG/PNG/WebP ≤ 3 MB) → Mathpix math OCR
+  `{provider, text, confidence, latency_ms}`. **Pro-only on the client** (entitlement is
+  client-side); 503 when `MATHPIX_APP_ID/KEY` unset, and the app falls back to on-device
+  ML Kit on any non-200. Rate limit `OCR_RATE_LIMIT` (default 6/minute).
 - `POST /homework` — practice questions. Body: `{topic, count (3-20), exam_mode, board}`
   → `{questions:[{question, answer}]}`
 - `POST /planner` — month-by-month study program. Body:
@@ -101,6 +107,8 @@ Loaded from a local `.env` in `ai-study-scanner/backend/` (template: `.env.examp
   built in), `NEWS_PER_FEED`, `NEWS_MAX_HEADLINES`, `NEWS_CACHE_TTL_S`,
   `NEWS_DISPATCH_WINDOW_MIN`, `CRON_SECRET` (protects `/cron/dispatch`),
   `FIREBASE_CREDENTIALS_JSON` (service-account JSON, **one line** — enables FCM + Firestore)
+- **Math OCR:** `MATHPIX_APP_ID`, `MATHPIX_APP_KEY` (unset = feature off), `MATHPIX_TIMEOUT_S`,
+  `OCR_MAX_IMAGE_BYTES`, `OCR_RATE_LIMIT`
 - `HOST`, `PORT`, `LOG_LEVEL`, `ENV`, `SENTRY_DSN`
 
 NEVER commit `.env`, the Firebase service-account JSON, or keystore passwords.
@@ -176,6 +184,10 @@ Two cron-job.org jobs are configured and live:
 - UPSC Live Agent lets the user pick **up to 4 daily times** (toggle chips); subscribe
   sends the **device timezone** (`TimeZone.getDefault().id`) and **24h "HH:MM" times**;
   the server fires each push at the subscriber's local time on the next cron tick.
+- **Scanning:** camera and gallery both go through `utils/OcrUtils.runOcr`. Free users:
+  on-device ML Kit + `superscriptAware()` (bounding-box superscript recovery → `t^3`).
+  Pro users: `POST /ocr` (Mathpix) capped at 15/day/device by `MathOcrQuota`, ML Kit
+  fallback on any failure. Server-side OCR repair happens in the Classify step regardless.
 - Quick Kotlin check (no packaging): `.\gradlew :app:compileDebugKotlin`
 - Signed release AAB (**bump `RELEASE_VERSION_CODE` every release**; keystore
   password/alias are kept locally, NOT in this file):
