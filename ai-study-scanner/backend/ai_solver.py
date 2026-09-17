@@ -10,6 +10,7 @@ from typing import Any
 from groq import Groq
 
 from config import Settings
+from ocr_repair import describe_repair, normalize_ocr
 from prompts import (
     AGENT_SOLVE_PROMPT_TEMPLATE,
     CLASSIFY_PROMPT_TEMPLATE,
@@ -203,9 +204,14 @@ def solve_agentic(
     client = Groq(api_key=settings.groq_api_key)
     steps: list[AgentStep] = []
 
+    # Step 0: deterministic OCR repair (unicode superscripts, ó->6, O->0, dashes).
+    # Cheap and context-free, so the classifier below starts from cleaner text
+    # and only has to judge the ambiguous cases (merged `t3`, dropped powers).
+    cleaned_question = normalize_ocr(question_text)
+
     # Step 1: Classify
     classify_prompt = CLASSIFY_PROMPT_TEMPLATE.format(
-        question_text=question_text
+        question_text=cleaned_question
     )
     classify_text, classify_ms = _call_groq(
         client,
@@ -222,16 +228,7 @@ def solve_agentic(
     steps.append(AgentStep(name="Classify", output=classify_text, latency_ms=classify_ms))
 
     # Parse classification JSON; fall back to defaults on any error
-    classification: dict[str, str] = {}
-    try:
-        raw_json = classify_text
-        if raw_json.startswith("```"):
-            raw_json = raw_json.split("```")[1]
-            if raw_json.startswith("json"):
-                raw_json = raw_json[4:]
-        classification = json.loads(raw_json.strip())
-    except Exception:
-        pass
+    classification = _parse_classification_json(classify_text)
 
     # A user-selected board (anything other than "Auto") overrides the
     # classifier's guess so the answer matches the syllabus they chose.
@@ -245,8 +242,19 @@ def solve_agentic(
     mode_line = "exam mode on: keep steps short and direct." if exam_mode else ""
 
     solve_question = _pick_corrected_question(
-        question_text, classification.get("corrected_question")
+        cleaned_question, classification.get("corrected_question")
     )
+    if solve_question != question_text:
+        # Surface the repair as its own step so the student can see, in the
+        # app's reasoning list, exactly what was solved instead of what was read.
+        steps.insert(
+            0,
+            AgentStep(
+                name="Repair",
+                output=describe_repair(question_text, solve_question),
+                latency_ms=0,
+            ),
+        )
 
     # Step 2: Solve with plan
     solve_prompt = AGENT_SOLVE_PROMPT_TEMPLATE.format(
@@ -284,6 +292,26 @@ def solve_agentic(
         total_latency_ms=total_ms,
         interpreted_question=solve_question,
     )
+
+
+def _parse_classification_json(text: str) -> dict[str, Any]:
+    """
+    Best-effort parse of the classifier's JSON object.
+
+    A reasoning model sometimes wraps the JSON in a code fence or a line of
+    prose; losing the whole classification (and with it the OCR repair) over
+    that would mean solving the raw scan, so slice to the outermost braces.
+    """
+    raw = (text or "").strip()
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start == -1 or end <= start:
+        return {}
+    try:
+        data = json.loads(raw[start : end + 1])
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _pick_corrected_question(original: str, corrected: object) -> str:

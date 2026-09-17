@@ -39,6 +39,7 @@ from ai_solver import (
 )
 from config import ensure_model_available, load_settings
 from cost_utils import TTLCache, cache_key_for, normalize_question_text
+from ocr_repair import normalize_ocr
 from math_ocr import MathOcrError, MathOcrNotConfigured, recognize_math
 from news import NewsResult, NewsUnavailableError, generate_news_qna
 import notifications
@@ -284,6 +285,9 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
         )
 
     board = req.board_value()
+    # Same glyph-level OCR repair the agent path runs; single-shot has no
+    # classifier, so this is its only chance to see `t^3` instead of `t³`/`t`.
+    question_text = normalize_ocr(question_text)
     prompt = build_prompt(
         question_text,
         exam_mode,

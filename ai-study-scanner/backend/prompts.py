@@ -32,6 +32,7 @@ CLASSIFY_PROMPT_TEMPLATE = (
     " 't^3 - 6t^2 + 9t + 5'. When answer options are given, check that the"
     " repaired equation can actually produce one of them and revise if not."
     " Keep every word and number that is plausible as written."
+    " Write powers with a caret (t^3, 10^{{-3}}), never Unicode superscripts."
     " If nothing needs fixing, copy the question verbatim.\n"
     "\nQuestion:\n{question_text}"
 )
