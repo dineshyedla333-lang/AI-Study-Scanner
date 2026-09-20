@@ -99,7 +99,25 @@ if _sentry_dsn:
 app = FastAPI(title=settings.app_name)
 
 # Rate limiting (basic anti-abuse protection)
-limiter = Limiter(key_func=get_remote_address)
+def _rate_limit_key(request: Request) -> str:
+    """Rate-limit per device, falling back to IP.
+
+    Indian mobile carriers put thousands of subscribers behind one public IP
+    (carrier-grade NAT), so a purely IP-keyed limit makes legitimate users
+    throttle each other. The app sends a stable per-install id; anything
+    without the header (curl, browsers, /docs) still keys on IP.
+
+    A client can spoof the header, so this trades some anti-abuse strength for
+    not 429-ing real students. The per-request AI cost is bounded by the
+    upstream Groq quota, and abusive ids are visible in logs.
+    """
+    device = request.headers.get("X-Device-Id")
+    if device:
+        return "dev:" + device.strip()[:64]
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_rate_limit_key)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -275,7 +293,7 @@ async def unhandled_exception_handler(
 
 
 @app.post("/solve", response_model=SolveResponse)
-@limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "10/minute"))
+@limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "20/minute"))
 def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveResponse:
     question_text, exam_mode = req.normalized()
     if not question_text:
@@ -367,7 +385,7 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
 
 
 @app.post("/solve/agent", response_model=AgenticSolveResponse)
-@limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "10/minute"))
+@limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "20/minute"))
 def agent_solve_endpoint(
     request: Request, req: SolveRequest = Body()
 ) -> AgenticSolveResponse:
@@ -465,7 +483,7 @@ def _homework_to_response(result: HomeworkResult) -> HomeworkResponse:
 
 
 @app.post("/homework", response_model=HomeworkResponse)
-@limiter.limit(os.getenv("HOMEWORK_RATE_LIMIT", "5/minute"))
+@limiter.limit(os.getenv("HOMEWORK_RATE_LIMIT", "10/minute"))
 def homework_endpoint(
     request: Request, req: HomeworkRequest = Body()
 ) -> HomeworkResponse:
@@ -548,7 +566,7 @@ def _planner_to_response(result: PlannerResult) -> PlannerResponse:
 
 
 @app.post("/planner", response_model=PlannerResponse)
-@limiter.limit(os.getenv("PLANNER_RATE_LIMIT", "5/minute"))
+@limiter.limit(os.getenv("PLANNER_RATE_LIMIT", "10/minute"))
 def planner_endpoint(
     request: Request, req: PlannerRequest = Body()
 ) -> PlannerResponse:
