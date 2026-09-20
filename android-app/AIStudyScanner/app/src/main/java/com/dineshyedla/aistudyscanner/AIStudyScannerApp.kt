@@ -26,12 +26,21 @@ import com.aistudyscanner.agent.screens.ProfileScreen
 import com.aistudyscanner.agent.screens.ScannerScreen
 import com.aistudyscanner.agent.screens.SolutionScreen
 import com.aistudyscanner.agent.screens.UpgradeScreen
+import com.aistudyscanner.agent.usage.TrialPrefs
 import com.aistudyscanner.agent.utils.runOcr
 
 @Composable
 fun AIStudyScannerApp() {
     val navController = rememberNavController()
     val context = LocalContext.current
+
+    // True while the user may still solve without an account.
+    fun trialAvailable(): Boolean =
+        ProfilePrefs.isRegistered(context) || !TrialPrefs.exhausted(context)
+
+    fun recordSolveIfTrial() {
+        if (!ProfilePrefs.isRegistered(context)) TrialPrefs.record(context)
+    }
 
     // State for gallery result — set by launcher, consumed by LaunchedEffect
     var pendingOcrText by remember { mutableStateOf<String?>(null) }
@@ -59,14 +68,17 @@ fun AIStudyScannerApp() {
                 set("exam_mode", pendingExamMode)
                 set("board", pendingBoard)
             }
+            recordSolveIfTrial()
             navController.navigate(Routes.SOLUTION)
             pendingOcrText = null
         }
     }
 
-    val startDestination = remember {
-        if (ProfilePrefs.isRegistered(context)) Routes.HOME else Routes.LOGIN
-    }
+    // Start on HOME even for a brand-new install. Someone arriving from a video or
+    // an ad gets TrialPrefs.FREE_SOLVES real answers before being asked to register;
+    // gating first cost us the users who had not yet seen the app do anything.
+    val startDestination = remember { Routes.HOME }
+
 
     NavHost(navController = navController, startDestination = startDestination) {
 
@@ -77,12 +89,17 @@ fun AIStudyScannerApp() {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
                 },
+                freeSolvesUsed = TrialPrefs.used(context),
             )
         }
 
         composable(Routes.HOME) {
             HomeScreen(
                 onScanQuestion = { examMode, board ->
+                    if (!trialAvailable()) {
+                        navController.navigate(Routes.LOGIN)
+                        return@HomeScreen
+                    }
                     navController.currentBackStackEntry?.savedStateHandle?.apply {
                         set("exam_mode", examMode)
                         set("board", board)
@@ -90,6 +107,10 @@ fun AIStudyScannerApp() {
                     navController.navigate(Routes.SCANNER)
                 },
                 onUploadScreenshot = { examMode, board ->
+                    if (!trialAvailable()) {
+                        navController.navigate(Routes.LOGIN)
+                        return@HomeScreen
+                    }
                     pendingExamMode = examMode
                     pendingBoard = board
                     galleryLauncher.launch("image/*")
@@ -127,6 +148,7 @@ fun AIStudyScannerApp() {
                         set("exam_mode", examMode)
                         set("board", board)
                     }
+                    recordSolveIfTrial()
                     navController.navigate(Routes.SOLUTION)
                 },
             )

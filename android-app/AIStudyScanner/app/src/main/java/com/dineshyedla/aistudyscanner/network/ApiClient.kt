@@ -8,6 +8,15 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
+    /**
+     * Stable per-install id, sent as X-Device-Id so the backend can rate-limit per
+     * device instead of per IP. Indian carriers NAT thousands of users behind one
+     * address, so IP-keyed limits make real students throttle each other.
+     * Set once from [AIStudyScannerApplication.onCreate].
+     */
+    @Volatile
+    var deviceId: String? = null
+
     private val baseUrl: String
         get() = BuildConfig.API_BASE_URL.trimEnd('/') + "/"
 
@@ -19,6 +28,15 @@ object ApiClient {
             .readTimeout(120, TimeUnit.SECONDS)
             .writeTimeout(120, TimeUnit.SECONDS)
             .callTimeout(150, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val id = deviceId
+                val req = if (id.isNullOrBlank()) {
+                    chain.request()
+                } else {
+                    chain.request().newBuilder().header("X-Device-Id", id).build()
+                }
+                chain.proceed(req)
+            }
         if (BuildConfig.DEBUG) {
             builder.addInterceptor(HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BODY

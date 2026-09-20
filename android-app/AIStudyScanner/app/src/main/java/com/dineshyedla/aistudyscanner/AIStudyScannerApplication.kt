@@ -8,6 +8,8 @@ import com.aistudyscanner.agent.ads.RewardedAdManager
 import com.aistudyscanner.agent.billing.BillingManager
 import com.aistudyscanner.agent.billing.ProPrefs
 import com.aistudyscanner.agent.messaging.StudyMessagingService
+import com.aistudyscanner.agent.network.ApiClient
+import com.aistudyscanner.agent.usage.UserIdProvider
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import io.sentry.android.core.SentryAndroid
@@ -17,6 +19,10 @@ class AIStudyScannerApplication : Application() {
         super.onCreate()
 
         createNewsNotificationChannel()
+
+        // Identify this install to the backend so rate limits are per device, not per
+        // IP (carrier NAT would otherwise let one user's traffic throttle another's).
+        ApiClient.deviceId = UserIdProvider.getOrCreateAnonymousId(this)
 
         // The Play target audience starts at 13, and the Families policy requires ads
         // suitable for minors wherever they are treated as children. Without this,

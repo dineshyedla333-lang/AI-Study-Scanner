@@ -80,7 +80,7 @@ class LoginViewModel : ViewModel() {
         }
     }
 
-    /** Persist the profile and continue, once signed in + a valid phone is set. */
+    /** Persist the profile and continue, once signed in. Phone is optional. */
     fun register(context: Context, onRegistered: () -> Unit) {
         val st = _ui.value
         val user = AuthManager.currentUser()
@@ -88,8 +88,10 @@ class LoginViewModel : ViewModel() {
             _ui.value = st.copy(error = "Please sign in with Google first.")
             return
         }
-        if (st.phone.length != 10) {
-            _ui.value = st.copy(error = "Enter a valid 10-digit mobile number.")
+        // Phone is optional - we never used it for anything, and demanding it from a
+        // new user before they have seen an answer cost more installs than it was worth.
+        if (st.phone.isNotEmpty() && st.phone.length != 10) {
+            _ui.value = st.copy(error = "Enter a valid 10-digit mobile number, or leave it blank.")
             return
         }
         ProfilePrefs.save(context, user.uid, st.signedInEmail, st.signedInName, st.phone)

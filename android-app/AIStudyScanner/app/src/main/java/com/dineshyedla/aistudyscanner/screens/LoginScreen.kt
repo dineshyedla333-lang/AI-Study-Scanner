@@ -37,6 +37,7 @@ import com.aistudyscanner.agent.auth.AuthManager
 @Composable
 fun LoginScreen(
     onRegistered: () -> Unit,
+    freeSolvesUsed: Int = 0,
     vm: LoginViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -118,11 +119,20 @@ fun LoginScreen(
             }
         }
 
-        // Step 2 — mobile number
+        if (freeSolvesUsed > 0) {
+            Text(
+                text = "You have used your $freeSolvesUsed free questions. " +
+                    "Sign in to keep solving - it stays free.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(4.dp))
+        }
+
+        // Step 2 — mobile number (optional)
         OutlinedTextField(
             value = state.phone,
             onValueChange = vm::onPhoneChange,
-            label = { Text("2. Mobile number (10 digits)") },
+            label = { Text("2. Mobile number (optional)") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             modifier = Modifier.fillMaxWidth(),
@@ -150,7 +160,9 @@ fun LoginScreen(
 
         Button(
             onClick = { vm.register(context, onRegistered) },
-            enabled = !state.isWorking && signedIn && state.phone.length == 10,
+            // Phone is optional: a blank number is fine, a partial one is not.
+            enabled = !state.isWorking && signedIn &&
+                (state.phone.isEmpty() || state.phone.length == 10),
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (state.isWorking) {
