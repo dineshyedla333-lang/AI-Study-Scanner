@@ -9,6 +9,7 @@ Or run directly with env python (no activation needed):
   cmd /c ""C:\\Users\\dines\\anaconda3\\envs\\ai_study_scanner\\python.exe" ^
     -m uvicorn main:app --reload"
 """
+import functools
 import logging
 import os
 import re
@@ -16,6 +17,7 @@ from typing import Literal
 
 from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exception_handlers import http_exception_handler
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
@@ -42,7 +44,10 @@ from cost_utils import TTLCache, cache_key_for, normalize_question_text
 from ocr_repair import normalize_ocr
 from math_ocr import MathOcrError, MathOcrNotConfigured, recognize_math
 from news import NewsResult, NewsUnavailableError, generate_news_qna
+import auth
 import notifications
+import play_verify
+import quota
 from notifications import LiveAgentNotConfigured
 from prompts import build_prompt
 
@@ -111,6 +116,11 @@ def _rate_limit_key(request: Request) -> str:
     not 429-ing real students. The per-request AI cost is bounded by the
     upstream Groq quota, and abusive ids are visible in logs.
     """
+    # A verified Firebase uid (set by firebase_auth_middleware) beats both: it
+    # cannot be invented, unlike the header.
+    caller = getattr(getattr(request, "state", None), "caller", None)
+    if caller is not None:
+        return "uid:" + caller.uid
     device = request.headers.get("X-Device-Id")
     if device:
         return "dev:" + device.strip()[:64]
@@ -123,6 +133,74 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Prometheus metrics
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
+# Paths that call paid AI (or store user data) and so need a verified caller.
+# /health, /metrics, /docs and /cron stay open.
+_AUTH_PATHS = ("/solve", "/homework", "/planner", "/news", "/ocr", "/usage")
+
+
+@app.middleware("http")
+async def firebase_auth_middleware(request: Request, call_next):
+    """Verify the Firebase ID token before routing, so the rate limiter and the
+    quota both see the caller's uid. AUTH_MODE decides about missing tokens."""
+    request.state.caller = None
+    if request.method != "OPTIONS" and request.url.path.startswith(_AUTH_PATHS):
+        try:
+            request.state.caller = await run_in_threadpool(
+                auth.authenticate, settings, request.headers.get("Authorization")
+            )
+        except auth.AuthError as e:
+            return JSONResponse(
+                status_code=e.status,
+                content={"detail": {"code": e.code, "message": e.message}},
+            )
+    return await call_next(request)
+
+
+def metered(kind: str):
+    """Charge one use of the caller's server-side quota for this endpoint.
+
+    The use is reserved before the handler runs and refunded if it raises, so a
+    failed or blank AI answer never costs the student a free solve. Requests
+    without a verified caller (older app builds while AUTH_MODE=optional) are
+    not metered here and keep only the per-device rate limit.
+    """
+
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            reservation = _reserve(kwargs["request"], kind)
+            try:
+                return fn(*args, **kwargs)
+            except BaseException:
+                if reservation is not None:
+                    try:
+                        quota.refund(settings, reservation)
+                    except Exception:
+                        logger.warning("Quota refund failed", exc_info=True)
+                raise
+
+        return wrapper
+
+    return decorator
+
+
+def _reserve(request: Request, kind: str) -> quota.Reservation | None:
+    caller = getattr(request.state, "caller", None)
+    if caller is None:
+        return None
+    is_pro = play_verify.is_pro(settings, request.headers.get("X-Play-Purchase-Token"))
+    try:
+        return quota.reserve(settings, caller, kind, is_pro=is_pro)
+    except quota.QuotaExceeded as e:
+        raise HTTPException(
+            status_code=403, detail={"code": e.code, "message": e.message}
+        ) from e
+    except Exception:
+        # Firestore trouble must not lock every student out; the rate limit and
+        # the Groq account quota still bound the cost.
+        logger.exception("Quota check failed; allowing request")
+        return None
 
 
 class SolveRequest(BaseModel):
@@ -294,6 +372,7 @@ async def unhandled_exception_handler(
 
 @app.post("/solve", response_model=SolveResponse)
 @limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "20/minute"))
+@metered(quota.SOLVE)
 def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveResponse:
     question_text, exam_mode = req.normalized()
     if not question_text:
@@ -386,6 +465,7 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
 
 @app.post("/solve/agent", response_model=AgenticSolveResponse)
 @limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "20/minute"))
+@metered(quota.SOLVE)
 def agent_solve_endpoint(
     request: Request, req: SolveRequest = Body()
 ) -> AgenticSolveResponse:
@@ -484,6 +564,7 @@ def _homework_to_response(result: HomeworkResult) -> HomeworkResponse:
 
 @app.post("/homework", response_model=HomeworkResponse)
 @limiter.limit(os.getenv("HOMEWORK_RATE_LIMIT", "10/minute"))
+@metered(quota.OTHER)
 def homework_endpoint(
     request: Request, req: HomeworkRequest = Body()
 ) -> HomeworkResponse:
@@ -567,6 +648,7 @@ def _planner_to_response(result: PlannerResult) -> PlannerResponse:
 
 @app.post("/planner", response_model=PlannerResponse)
 @limiter.limit(os.getenv("PLANNER_RATE_LIMIT", "10/minute"))
+@metered(quota.OTHER)
 def planner_endpoint(
     request: Request, req: PlannerRequest = Body()
 ) -> PlannerResponse:
@@ -699,6 +781,7 @@ async def ocr_endpoint(
 
 @app.post("/news", response_model=NewsResponse)
 @limiter.limit(os.getenv("NEWS_RATE_LIMIT", "10/minute"))
+@metered(quota.OTHER)
 def news_endpoint(
     request: Request, req: NewsRequest = Body()
 ) -> NewsResponse:
@@ -837,6 +920,23 @@ def unsubscribe_endpoint(
             detail=f"Could not remove subscription: {e}",
         ) from e
     return SimpleStatus(status="ok", detail="Unsubscribed from Live Agent.")
+
+
+@app.post("/usage/bonus")
+@limiter.limit(os.getenv("BONUS_RATE_LIMIT", "10/minute"))
+def usage_bonus_endpoint(request: Request) -> dict:
+    """Record a watched rewarded ad: +AD_BONUS_SOLVES for today, capped per day."""
+    caller = getattr(request.state, "caller", None)
+    if caller is None:
+        # Older builds / AUTH_MODE=off: there is no server quota to top up.
+        return {"status": "ok", "bonus": 0}
+    try:
+        usage = quota.grant_bonus(settings, caller)
+    except quota.QuotaExceeded as e:
+        raise HTTPException(
+            status_code=403, detail={"code": e.code, "message": e.message}
+        ) from e
+    return {"status": "ok", "bonus": usage.bonus}
 
 
 @app.api_route("/cron/dispatch", methods=["GET", "POST"])

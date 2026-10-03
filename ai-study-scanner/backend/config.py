@@ -69,6 +69,24 @@ class Settings:
     mathpix_timeout_s: float = 20.0
     ocr_max_image_bytes: int = 3 * 1024 * 1024
 
+    # Firebase Auth on API calls. "optional" verifies a token when one is sent and
+    # rejects a bad one, but still serves older app builds that send none (they keep
+    # the per-device rate limit only). Flip to "required" once most installs are on
+    # a token-sending build. "off" skips verification entirely.
+    auth_mode: str = "optional"
+
+    # Server-side free quota, enforced per Firebase uid (see quota.py).
+    trial_free_solves: int = 3
+    daily_free_limit: int = 10
+    ad_bonus_solves: int = 3
+    max_ad_bonuses_per_day: int = 5
+    pro_daily_cap: int = 200
+    quota_tz: str = "Asia/Kolkata"
+
+    # Google Play subscription check for Pro (uses the Firebase service account).
+    play_package_name: str = "com.aistudyscanner.agent"
+    play_pro_product_id: str = "pro"
+
 
 def load_settings() -> Settings:
     """
@@ -132,6 +150,17 @@ def load_settings() -> Settings:
         ocr_max_image_bytes=int(
             os.getenv("OCR_MAX_IMAGE_BYTES", str(3 * 1024 * 1024))
         ),
+        auth_mode=_parse_auth_mode(os.getenv("AUTH_MODE")),
+        trial_free_solves=int(os.getenv("TRIAL_FREE_SOLVES", "3")),
+        daily_free_limit=int(os.getenv("DAILY_FREE_LIMIT", "10")),
+        ad_bonus_solves=int(os.getenv("AD_BONUS_SOLVES", "3")),
+        max_ad_bonuses_per_day=int(os.getenv("MAX_AD_BONUSES_PER_DAY", "5")),
+        pro_daily_cap=int(os.getenv("PRO_DAILY_CAP", "200")),
+        quota_tz=os.getenv("QUOTA_TZ", Settings.quota_tz),
+        play_package_name=os.getenv("PLAY_PACKAGE_NAME", Settings.play_package_name),
+        play_pro_product_id=os.getenv(
+            "PLAY_PRO_PRODUCT_ID", Settings.play_pro_product_id
+        ),
     )
 
 
@@ -183,3 +212,14 @@ def _parse_feeds(raw: str | None) -> tuple[str, ...]:
         return Settings.news_rss_feeds
     feeds = tuple(f.strip() for f in raw.split(",") if f.strip())
     return feeds or Settings.news_rss_feeds
+
+
+def _parse_auth_mode(raw: str | None) -> str:
+    """off | optional | required; anything unrecognised falls back to optional."""
+    mode = (raw or Settings.auth_mode).strip().lower()
+    if mode not in ("off", "optional", "required"):
+        logging.getLogger("ai-study-scanner").warning(
+            "Unknown AUTH_MODE %r; using 'optional'", raw
+        )
+        return "optional"
+    return mode

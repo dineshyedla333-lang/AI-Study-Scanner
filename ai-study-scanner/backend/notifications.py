@@ -71,6 +71,12 @@ def _ensure_init(settings: Settings) -> None:
     _initialized = True
 
 
+def firestore_client(settings: Settings):
+    """The shared firebase-admin Firestore client (auth and quota reuse it)."""
+    _ensure_init(settings)
+    return _db
+
+
 # --------------------------------------------------------------------------- #
 # Subscription CRUD
 # --------------------------------------------------------------------------- #
