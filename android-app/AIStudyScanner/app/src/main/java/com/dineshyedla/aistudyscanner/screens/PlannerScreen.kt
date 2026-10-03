@@ -176,6 +176,7 @@ fun PlannerScreen(
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                ServerTooSlowRetry(err) { vm.generate(context) }
             }
 
             if (state.overview.isNotBlank()) {

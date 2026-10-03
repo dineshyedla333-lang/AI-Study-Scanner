@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudyscanner.agent.network.ApiClient
+import com.aistudyscanner.agent.network.ApiErrors
 import com.aistudyscanner.agent.network.HomeworkItem
 import com.aistudyscanner.agent.network.HomeworkRequest
 import com.aistudyscanner.agent.usage.UsageRepository
@@ -107,10 +108,11 @@ class HomeworkViewModel(
                     revealed = emptySet(),
                 )
             } catch (e: HttpException) {
-                val detail = e.response()?.errorBody()?.string() ?: e.message()
+                val body = e.response()?.errorBody()?.string()
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "HTTP ${e.code()}: $detail",
+                    error = ApiErrors.parse(body)?.message
+                        ?: "HTTP ${e.code()}: ${body ?: e.message()}",
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

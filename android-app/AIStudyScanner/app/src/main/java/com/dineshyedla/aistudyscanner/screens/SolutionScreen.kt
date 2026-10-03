@@ -68,6 +68,7 @@ import com.aistudyscanner.agent.ui.MathMarkdown
 fun SolutionScreen(
     onBack: () -> Unit,
     onUpgrade: () -> Unit = {},
+    onRegister: () -> Unit = {},
     extractedText: String,
     initialExamMode: Boolean = true,
     board: String = "Auto",
@@ -83,6 +84,13 @@ fun SolutionScreen(
         vm.setExamBoard(board)
         if (extractedText.isNotBlank()) {
             vm.solve(context)
+        }
+    }
+
+    LaunchedEffect(state.needsRegistration) {
+        if (state.needsRegistration) {
+            vm.registrationHandled()
+            onRegister()
         }
     }
 
@@ -163,6 +171,7 @@ fun SolutionScreen(
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                ServerTooSlowRetry(err) { vm.solve(context) }
             }
 
             // Watch a rewarded ad for bonus quota once the free daily limit is hit

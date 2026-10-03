@@ -2,6 +2,7 @@ package com.aistudyscanner.agent.network
 
 import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -148,6 +149,10 @@ interface AiStudyApi {
 
     @POST("news/unsubscribe")
     suspend fun unsubscribe(@Body body: UnsubscribeRequest): SimpleStatus
+
+    /** Tells the server a rewarded ad was watched (+3 solves today, capped). */
+    @POST("usage/bonus")
+    suspend fun grantBonus(): Response<Unit>
 
     @Multipart
     @POST("ocr")

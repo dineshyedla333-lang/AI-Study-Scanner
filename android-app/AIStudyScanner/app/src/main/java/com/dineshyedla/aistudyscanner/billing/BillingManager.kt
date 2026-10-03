@@ -254,6 +254,7 @@ object BillingManager {
 
         _isPaymentPending.value = false
         setPro(true)
+        appContext?.let { ProPrefs.setPurchaseToken(it, purchase.purchaseToken) }
 
         // Acknowledge within three days or Google refunds it automatically. This is
         // the single most expensive thing to get wrong in a billing integration.
@@ -271,7 +272,10 @@ object BillingManager {
 
     private fun setPro(value: Boolean) {
         _isPro.value = value
-        appContext?.let { ProPrefs.setPro(it, value) }
+        appContext?.let {
+            ProPrefs.setPro(it, value)
+            if (!value) ProPrefs.setPurchaseToken(it, null)
+        }
     }
 
     /** Opens Play's purchase sheet. Returns false if billing isn't ready yet. */

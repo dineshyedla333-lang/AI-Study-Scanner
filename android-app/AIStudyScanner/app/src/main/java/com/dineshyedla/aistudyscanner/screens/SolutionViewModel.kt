@@ -4,10 +4,15 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aistudyscanner.agent.auth.ProfilePrefs
 import com.aistudyscanner.agent.history.HistoryRepository
 import com.aistudyscanner.agent.network.AgentStepResponse
 import com.aistudyscanner.agent.network.ApiClient
+import com.aistudyscanner.agent.network.ApiErrors
+import com.aistudyscanner.agent.network.ServerTooSlowException
+import com.aistudyscanner.agent.network.ServerWarmup
 import com.aistudyscanner.agent.network.SolveRequest
+import com.aistudyscanner.agent.usage.TrialPrefs
 import com.aistudyscanner.agent.usage.UsageRepository
 import com.aistudyscanner.agent.usage.UsageStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +42,8 @@ data class SolutionUiState(
     val interpretedQuestion: String? = null,
     val error: String? = null,
     val usage: UsageStatus? = null,
+    /** Free trial used up by an unregistered user; the screen sends them to Login. */
+    val needsRegistration: Boolean = false,
 )
 
 class SolutionViewModel(
@@ -57,6 +64,10 @@ class SolutionViewModel(
         _uiState.value = _uiState.value.copy(examBoard = board)
     }
 
+    fun registrationHandled() {
+        _uiState.value = _uiState.value.copy(needsRegistration = false)
+    }
+
     /**
      * Called once the rewarded ad reports the reward as earned. Runs the pending
      * solve straight away — the user watched a full ad to get here, so making them
@@ -72,6 +83,9 @@ class SolutionViewModel(
                 )
                 return@launch
             }
+            // Best effort: the server keeps its own quota and needs to hear about the
+            // reward too. Older servers simply have no quota to top up.
+            runCatching { ApiClient.api.grantBonus() }
             _uiState.value = _uiState.value.copy(usage = usage, error = null)
             if (_uiState.value.extractedText.isNotBlank()) solve(context)
         }
@@ -101,6 +115,13 @@ class SolutionViewModel(
         val question = _uiState.value.extractedText.trim()
         if (question.isBlank()) {
             _uiState.value = _uiState.value.copy(error = "No question text to solve.")
+            return
+        }
+
+        // Scan/Upload check the trial too, but re-solving an edited question on this
+        // screen bypasses them, so the wall is also enforced here.
+        if (!ProfilePrefs.isRegistered(context) && TrialPrefs.exhausted(context)) {
+            _uiState.value = _uiState.value.copy(needsRegistration = true)
             return
         }
 
@@ -152,6 +173,12 @@ class SolutionViewModel(
                     examMode = _uiState.value.examMode,
                 )
 
+                // A free trial solve is spent only on a real answer, never on a
+                // failed OCR, an empty Skip or a server error.
+                if (resp.answer.isNotBlank() && !ProfilePrefs.isRegistered(context)) {
+                    TrialPrefs.record(context)
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     currentAgentStep = "",
@@ -164,10 +191,20 @@ class SolutionViewModel(
                 )
             } catch (e: HttpException) {
                 refund(context, debited)
+                val server = ApiErrors.parse(e.response()?.errorBody()?.string())
+                if (server?.code == ApiErrors.REGISTRATION_REQUIRED) {
+                    // The server's trial count is the authority; send them to sign up.
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        currentAgentStep = "",
+                        needsRegistration = true,
+                    )
+                    return@launch
+                }
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     currentAgentStep = "",
-                    error = when (e.code()) {
+                    error = server?.message ?: when (e.code()) {
                         429 -> "That was a bit quick — wait a few seconds and try again. " +
                             "Your free solve wasn't used."
                         in 500..599 -> "Our server had a problem. Your free solve wasn't " +
@@ -175,6 +212,13 @@ class SolutionViewModel(
                         else -> "Couldn't get an answer (error ${e.code()}). Your free " +
                             "solve wasn't used."
                     },
+                )
+            } catch (e: ServerTooSlowException) {
+                refund(context, debited)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    currentAgentStep = "",
+                    error = ServerWarmup.TOO_SLOW_MESSAGE,
                 )
             } catch (e: Exception) {
                 refund(context, debited)

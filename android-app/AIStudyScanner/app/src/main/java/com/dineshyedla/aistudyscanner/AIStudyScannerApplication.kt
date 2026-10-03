@@ -5,10 +5,12 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.aistudyscanner.agent.ads.RewardedAdManager
+import com.aistudyscanner.agent.auth.AuthManager
 import com.aistudyscanner.agent.billing.BillingManager
 import com.aistudyscanner.agent.billing.ProPrefs
 import com.aistudyscanner.agent.messaging.StudyMessagingService
 import com.aistudyscanner.agent.network.ApiClient
+import com.aistudyscanner.agent.network.ServerWarmup
 import com.aistudyscanner.agent.usage.UserIdProvider
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
@@ -23,6 +25,15 @@ class AIStudyScannerApplication : Application() {
         // Identify this install to the backend so rate limits are per device, not per
         // IP (carrier NAT would otherwise let one user's traffic throttle another's).
         ApiClient.deviceId = UserIdProvider.getOrCreateAnonymousId(this)
+        ApiClient.purchaseToken = { ProPrefs.purchaseToken(this) }
+
+        // Silent anonymous Firebase sign-in: no screen, no email. It gives the
+        // backend a verifiable uid to meter, while a new user can scan at once.
+        AuthManager.startAnonymousSignIn()
+
+        // Start waking a sleeping Render instance now, in the background, so it is
+        // usually up by the time the student has scanned and taps Solve.
+        ServerWarmup.prewarm()
 
         // The Play target audience starts at 13, and the Families policy requires ads
         // suitable for minors wherever they are treated as children. Without this,

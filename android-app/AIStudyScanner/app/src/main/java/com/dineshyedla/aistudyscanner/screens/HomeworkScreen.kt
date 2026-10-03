@@ -178,6 +178,7 @@ fun HomeworkScreen(
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                ServerTooSlowRetry(err) { vm.generate(context) }
             }
 
             if (state.questions.isNotEmpty()) {

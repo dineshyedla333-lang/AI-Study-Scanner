@@ -23,7 +23,7 @@ object TrialPrefs {
     /** True once the trial is spent; the caller should send the user to registration. */
     fun exhausted(context: Context): Boolean = used(context) >= FREE_SOLVES
 
-    /** Count one solve. Call only after a solve actually starts, not on a failed OCR. */
+    /** Count one solve. Call only once a real answer has come back from the server. */
     fun record(context: Context) {
         prefs(context).edit().putInt(KEY_USED, used(context) + 1).apply()
     }

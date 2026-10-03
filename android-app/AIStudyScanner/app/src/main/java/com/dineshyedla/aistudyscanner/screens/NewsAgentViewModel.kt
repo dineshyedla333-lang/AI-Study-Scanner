@@ -7,6 +7,7 @@ import com.aistudyscanner.agent.auth.AuthManager
 import com.aistudyscanner.agent.auth.ProfilePrefs
 import com.aistudyscanner.agent.messaging.NewsAgentPrefs
 import com.aistudyscanner.agent.network.ApiClient
+import com.aistudyscanner.agent.network.ApiErrors
 import com.aistudyscanner.agent.network.HomeworkItem
 import com.aistudyscanner.agent.network.NewsRequest
 import com.aistudyscanner.agent.network.SubscribeRequest
@@ -180,8 +181,8 @@ class NewsAgentViewModel(
         return if (e.code() == 503) {
             "Daily push isn't available yet (server setup pending). You can still use Preview."
         } else {
-            val detail = e.response()?.errorBody()?.string() ?: e.message()
-            "HTTP ${e.code()}: $detail"
+            val body = e.response()?.errorBody()?.string()
+            ApiErrors.parse(body)?.message ?: "HTTP ${e.code()}: ${body ?: e.message()}"
         }
     }
 }
