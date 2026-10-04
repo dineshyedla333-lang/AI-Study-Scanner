@@ -10,9 +10,10 @@ import retrofit2.http.Part
 
 data class SolveRequest(
     @SerializedName("question_text") val question_text: String,
-    @SerializedName("exam_mode") val exam_mode: Boolean,
     // Auto / CBSE / JEE / NEET / EAMCET — "Auto" lets the agent detect it.
     @SerializedName("board") val board: String = "Auto",
+    // Language the step-by-step explanation is written in (en / hi / te / …).
+    @SerializedName("language") val language: String = "en",
 )
 
 data class SolveResponse(
@@ -46,11 +47,29 @@ data class OcrResponse(
     @SerializedName("latency_ms") val latency_ms: Int,
 )
 
+/** "Key concept + practice" shown under a solved question. */
+data class LearnRequest(
+    @SerializedName("question_text") val question_text: String,
+    @SerializedName("answer_text") val answer_text: String,
+    @SerializedName("subject") val subject: String? = null,
+    @SerializedName("topic") val topic: String? = null,
+    @SerializedName("count") val count: Int = 3,
+    @SerializedName("language") val language: String = "en",
+)
+
+data class LearnResponse(
+    @SerializedName("provider") val provider: String,
+    @SerializedName("model") val model: String,
+    @SerializedName("key_concept") val key_concept: String,
+    @SerializedName("practice") val practice: List<HomeworkItem>,
+    @SerializedName("latency_ms") val latency_ms: Int,
+)
+
 data class HomeworkRequest(
     @SerializedName("topic") val topic: String,
     @SerializedName("count") val count: Int,
-    @SerializedName("exam_mode") val exam_mode: Boolean,
     @SerializedName("board") val board: String = "Auto",
+    @SerializedName("language") val language: String = "en",
 )
 
 data class HomeworkItem(
@@ -72,6 +91,7 @@ data class PlannerRequest(
     @SerializedName("months") val months: Int,
     @SerializedName("hours_per_day") val hours_per_day: Float,
     @SerializedName("goal") val goal: String? = null,
+    @SerializedName("language") val language: String = "en",
 )
 
 data class PlannerMonth(
@@ -95,6 +115,7 @@ data class PlannerResponse(
 data class NewsRequest(
     @SerializedName("exam") val exam: String = "UPSC",
     @SerializedName("count") val count: Int = 5,
+    @SerializedName("language") val language: String = "en",
 )
 
 data class NewsResponse(
@@ -117,6 +138,8 @@ data class SubscribeRequest(
     @SerializedName("tz") val tz: String,
     @SerializedName("count") val count: Int = 5,
     @SerializedName("enabled") val enabled: Boolean = true,
+    // Language for the daily push Q&A, stored with the subscription.
+    @SerializedName("language") val language: String = "en",
 )
 
 data class UnsubscribeRequest(
@@ -157,4 +180,8 @@ interface AiStudyApi {
     @Multipart
     @POST("ocr")
     suspend fun ocr(@Part image: MultipartBody.Part): OcrResponse
+
+    /** The concept behind a solved question plus a few to try. Not metered. */
+    @POST("learn")
+    suspend fun learn(@Body body: LearnRequest): LearnResponse
 }

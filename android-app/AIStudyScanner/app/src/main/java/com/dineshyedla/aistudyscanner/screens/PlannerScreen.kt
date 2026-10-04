@@ -51,6 +51,7 @@ fun PlannerScreen(
     val state by vm.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
+        vm.loadLanguage(context)
         if (initialBoard in PLANNER_BOARD_OPTIONS) vm.setBoard(initialBoard)
     }
 
@@ -138,6 +139,11 @@ fun PlannerScreen(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Goal (optional, e.g. Crack JEE 2027)") },
                 singleLine = true,
+            )
+
+            LanguageSelector(
+                language = state.language,
+                onLanguageChange = { vm.setLanguage(context, it) },
             )
 
             state.usage?.let { usage ->

@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.aistudyscanner.agent.network.ApiClient
 import com.aistudyscanner.agent.network.ApiErrors
 import com.aistudyscanner.agent.network.HomeworkItem
+import com.aistudyscanner.agent.i18n.DEFAULT_LANGUAGE_CODE
+import com.aistudyscanner.agent.i18n.LanguagePrefs
 import com.aistudyscanner.agent.network.HomeworkRequest
 import com.aistudyscanner.agent.usage.UsageRepository
 import com.aistudyscanner.agent.usage.UsageStatus
@@ -18,8 +20,8 @@ import retrofit2.HttpException
 data class HomeworkUiState(
     val topic: String = "",
     val count: Int = 10,
-    val examMode: Boolean = true,
     val board: String = "Auto",
+    val language: String = DEFAULT_LANGUAGE_CODE,
     val isLoading: Boolean = false,
     val questions: List<HomeworkItem> = emptyList(),
     val revealed: Set<Int> = emptySet(),
@@ -41,8 +43,13 @@ class HomeworkViewModel(
         _uiState.value = _uiState.value.copy(count = value)
     }
 
-    fun setExamMode(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(examMode = enabled)
+    fun setLanguage(context: Context, code: String) {
+        LanguagePrefs.set(context, code)
+        _uiState.value = _uiState.value.copy(language = code)
+    }
+
+    fun loadLanguage(context: Context) {
+        _uiState.value = _uiState.value.copy(language = LanguagePrefs.get(context))
     }
 
     fun setBoard(board: String) {
@@ -97,8 +104,8 @@ class HomeworkViewModel(
                     HomeworkRequest(
                         topic = topic,
                         count = _uiState.value.count,
-                        exam_mode = _uiState.value.examMode,
                         board = _uiState.value.board,
+                        language = _uiState.value.language,
                     )
                 )
 

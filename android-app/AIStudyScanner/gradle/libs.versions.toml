@@ -25,6 +25,8 @@ playServicesAds = "23.6.0"
 billing = "9.1.0"
 sentry = "8.51.0"
 
+junit = "4.13.2"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 
@@ -79,6 +81,9 @@ billing = { group = "com.android.billingclient", name = "billing", version.ref =
 # whose libsentry.so / libsentry-android.so are still 4 KB aligned and break 16 KB
 # support. This app has no native code, so NDK crash capture buys nothing.
 sentry-android = { group = "io.sentry", name = "sentry-android-core", version.ref = "sentry" }
+
+# Unit tests (JVM only — no emulator needed)
+junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

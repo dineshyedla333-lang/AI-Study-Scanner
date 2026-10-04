@@ -105,6 +105,11 @@ fun NewsAgentScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            LanguageSelector(
+                language = state.language,
+                onLanguageChange = { vm.setLanguage(context, it) },
+            )
+
             // Delivery times — pick up to 4 pushes a day
             Text(
                 text = "When should we send it? (pick up to $MAX_NEWS_TIMES a day)",

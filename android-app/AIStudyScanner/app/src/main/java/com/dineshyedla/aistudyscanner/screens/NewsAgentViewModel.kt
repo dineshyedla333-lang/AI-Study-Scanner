@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudyscanner.agent.auth.AuthManager
 import com.aistudyscanner.agent.auth.ProfilePrefs
+import com.aistudyscanner.agent.i18n.DEFAULT_LANGUAGE_CODE
+import com.aistudyscanner.agent.i18n.LanguagePrefs
 import com.aistudyscanner.agent.messaging.NewsAgentPrefs
 import com.aistudyscanner.agent.network.ApiClient
 import com.aistudyscanner.agent.network.ApiErrors
@@ -36,6 +38,7 @@ data class NewsAgentUiState(
     val selectedTimes: List<String> = listOf("08:00"),
     val exam: String = "UPSC",
     val count: Int = 5,
+    val language: String = DEFAULT_LANGUAGE_CODE,
     val isPreviewing: Boolean = false,
     val isSaving: Boolean = false,
     val preview: List<HomeworkItem> = emptyList(),
@@ -57,7 +60,13 @@ class NewsAgentViewModel(
             selectedTimes = savedTimes.ifEmpty { _uiState.value.selectedTimes },
             exam = NewsAgentPrefs.getExam(context),
             count = NewsAgentPrefs.getCount(context),
+            language = LanguagePrefs.get(context),
         )
+    }
+
+    fun setLanguage(context: Context, code: String) {
+        LanguagePrefs.set(context, code)
+        _uiState.value = _uiState.value.copy(language = code)
     }
 
     /** Toggle a delivery slot on/off, keeping at most [MAX_NEWS_TIMES] picked. */
@@ -92,7 +101,11 @@ class NewsAgentViewModel(
                     return@launch
                 }
                 val resp = ApiClient.api.news(
-                    NewsRequest(exam = _uiState.value.exam, count = _uiState.value.count)
+                    NewsRequest(
+                        exam = _uiState.value.exam,
+                        count = _uiState.value.count,
+                        language = _uiState.value.language,
+                    )
                 )
                 _uiState.value = _uiState.value.copy(
                     isPreviewing = false,
@@ -135,6 +148,7 @@ class NewsAgentViewModel(
                         tz = TimeZone.getDefault().id,
                         count = _uiState.value.count,
                         enabled = true,
+                        language = _uiState.value.language,
                     )
                 )
                 NewsAgentPrefs.save(context, true, times, _uiState.value.exam, _uiState.value.count)

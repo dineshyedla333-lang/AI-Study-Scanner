@@ -56,7 +56,7 @@ fun ExplainScreen(onBack: () -> Unit) {
         ) {
             HowToCard(
                 step = "1",
-                title = "Scan Question",
+                title = "Scan & Understand",
                 desc = "Point your camera at any printed question. Make sure the text is clear and well-lit. Tap Capture to extract the text automatically.",
             )
             HowToCard(
@@ -71,8 +71,8 @@ fun ExplainScreen(onBack: () -> Unit) {
             )
             HowToCard(
                 step = "4",
-                title = "Exam Mode",
-                desc = "Turn ON Exam Mode for short, direct answers with key steps only. Turn it OFF for detailed explanations useful when studying a concept.",
+                title = "Explain in your language",
+                desc = "Pick your language at the top of the home screen — Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Bengali or Gujarati. The AI then explains every step in that language, while formulas and technical terms stay in English so they match your textbook and exam paper. Your choice is remembered.",
             )
             HowToCard(
                 step = "5",
@@ -86,9 +86,80 @@ fun ExplainScreen(onBack: () -> Unit) {
             )
             HowToCard(
                 step = "7",
-                title = "Agent Reasoning",
-                desc = "Tap any step card in the solution to see how the AI classified and approached the question. This shows subject, topic, difficulty, and strategy used.",
+                title = "How the AI worked it out",
+                desc = "Every answer starts with the concept and the method, then the working, and ends with the final answer. Tap any step card in the solution to see how the AI classified and approached the question — subject, topic, difficulty, and the strategy used.",
             )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Listen to the explanation",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Tap 'Listen' under any solution — or under any Home " +
+                            "Work answer — and your phone reads the whole explanation " +
+                            "aloud in the language you chose, so you can follow along " +
+                            "instead of only reading. If your phone says the voice " +
+                            "isn't available for your language, install it from " +
+                            "Settings → Text-to-speech (or Language & input → " +
+                            "Text-to-speech output).",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Key concept & practice",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Under every solution you get the key concept behind " +
+                            "the question — including the mistake students usually " +
+                            "make — plus three similar questions to try. These are " +
+                            "free: they don't use up your daily solves.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Daily streak",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Solve at least one question a day and your streak goes " +
+                            "up, right at the top of the home screen. Miss a day and it " +
+                            "starts again — but your best streak is always remembered.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),

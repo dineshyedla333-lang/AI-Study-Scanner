@@ -73,7 +73,14 @@ cd ai-study-scanner\backend
   stale `app/` copy — prefer the `backend/` command above.)
 
 ## API endpoints
-- `POST /solve` — single-shot answer. Body: `{question_text, exam_mode, board?}`
+**Every AI endpoint takes an optional `language`** (`en` default, plus `hi te ta kn ml
+mr bn gu`). Non-English means the explanation is written in that language while
+formulas, LaTeX and standard technical terms stay in English. `language` is part of
+every cache key, and non-English calls get `GROQ_TRANSLATED_TOKEN_MULTIPLIER`× the
+output budget because Indic scripts cost 2-3× the tokens. **Exam Mode is gone** (build
+20): every answer is a step-by-step explanation. `exam_mode` is still *accepted and
+ignored* on `/solve`, `/solve/agent` and `/homework` so pre-build-20 installs don't 422.
+- `POST /solve` — single-shot answer. Body: `{question_text, board?, language?}`
 - `POST /solve/agent` — agentic (classify → solve); **the Android app uses this**.
   Returns reasoning `steps` + `answer` + `interpreted_question` (the question after the
   classifier repaired OCR errors such as `t3→t^3`, `ó→6`; the app shows it as
@@ -82,14 +89,20 @@ cd ai-study-scanner\backend
   `{provider, text, confidence, latency_ms}`. **Pro-only on the client** (entitlement is
   client-side); 503 when `MATHPIX_APP_ID/KEY` unset, and the app falls back to on-device
   ML Kit on any non-200. Rate limit `OCR_RATE_LIMIT` (default 6/minute).
-- `POST /homework` — practice questions. Body: `{topic, count (3-20), exam_mode, board}`
+- `POST /homework` — practice questions. Body: `{topic, count (3-20), board, language?}`
   → `{questions:[{question, answer}]}`
 - `POST /planner` — month-by-month study program. Body:
-  `{board, months (1-12), hours_per_day (0.5-16), goal?}` → `{overview, plan:[{month,
+  `{board, months (1-12), hours_per_day (0.5-16), goal?, language?}` → `{overview, plan:[{month,
   title, topics:[…], milestone}]}`. `board` ∈ CBSE/JEE/NEET/EAMCET/UPSC (others → general).
-- `POST /news` — UPSC current-affairs Q&A from live RSS. Body: `{exam, count (1-10)}`
+- `POST /news` — UPSC current-affairs Q&A from live RSS. Body: `{exam, count (1-10), language?}`
+- `POST /learn` — the concept behind a solved question + practice questions. Body:
+  `{question_text, answer_text, subject?, topic?, count (2-5), language?}` →
+  `{key_concept, practice:[{question, answer}]}`. **Deliberately NOT metered** — the
+  solve it follows already cost a quota unit, and charging again would teach students
+  not to tap it. The per-device rate limit still applies.
 - `POST /news/subscribe` · `POST /news/unsubscribe` — FCM token + schedule, stored in
-  Firestore `news_subscriptions`. Needs Firebase configured (else graceful 503).
+  Firestore `news_subscriptions` (incl. `lang`, so each subscriber's daily push is
+  generated in their own language). Needs Firebase configured (else graceful 503).
   `times` is **1-4** `"HH:MM"` slots (sorted, deduped); each fires its own daily push.
 - `GET` or `POST /cron/dispatch?key=<CRON_SECRET>` — an external cron calls this every
   ~15 min; it sends due pushes. 403 without the secret.
@@ -102,7 +115,10 @@ Loaded from a local `.env` in `ai-study-scanner/backend/` (template: `.env.examp
 - `GROQ_TIMEOUT_S`, `GROQ_TEMPERATURE_EXAM`, `GROQ_TEMPERATURE_DEFAULT`,
   `GROQ_MAX_OUTPUT_TOKENS`, `GROQ_HOMEWORK_MAX_OUTPUT_TOKENS`, `GROQ_HOMEWORK_TIMEOUT_S`,
   `GROQ_PLANNER_MAX_OUTPUT_TOKENS` (default 4096), `GROQ_PLANNER_TIMEOUT_S` (default 60)
-- `MAX_QUESTION_CHARS`, `PROMPT_ANSWER_STYLE`, `SOLVE_CACHE_TTL_S`
+- `MAX_QUESTION_CHARS`, `PROMPT_ANSWER_STYLE` (`explain` default, `brief`; the old
+  `compact`/`ultra_compact` values still map onto them), `SOLVE_CACHE_TTL_S`,
+  `GROQ_TRANSLATED_TOKEN_MULTIPLIER` (default 2.0)
+- **Learn card:** `GROQ_LEARN_MAX_OUTPUT_TOKENS` (1536), `GROQ_LEARN_TIMEOUT_S` (45)
 - **UPSC Live Agent:** `NEWS_RSS_FEEDS` (optional, comma-separated; sensible defaults
   built in), `NEWS_PER_FEED`, `NEWS_MAX_HEADLINES`, `NEWS_CACHE_TTL_S`,
   `NEWS_DISPATCH_WINDOW_MIN`, `CRON_SECRET` (protects `/cron/dispatch`),
@@ -150,11 +166,34 @@ Two cron-job.org jobs are configured and live:
 - Path: `android-app/AIStudyScanner/`. Kotlin + Compose; applicationId
   `com.aistudyscanner.agent`. Uses Firebase (`google-services.json` present);
   FCM notification channel id `upsc_live_agent`.
-- **Latest build: v1.2.5 / versionCode 14** — submitted to Play **Production at 100%**
-  on 2026-08-01 (targetSdk 36 + rewarded ads). Play rejected code 12 as already used,
-  so codes go 13 → 14. `gradle.properties` defaults to code **15** for the next build;
-  bump it there every upload. The version NAME stays 1.2.5 until features change, so a
-  rebuild after a rejection is still labelled correctly.
+- **Latest build: v1.4.0 / versionCode 20** — the learning reposition: Exam Mode is
+  gone, every answer is a step-by-step explanation, and the student picks the language
+  it is explained in (English + 8 Indian languages, remembered in `i18n/LanguagePrefs`).
+  Bump `RELEASE_VERSION_CODE` in `gradle.properties` on every upload; Play rejects a
+  reused code. The version NAME changes only when features do, so a rebuild after a
+  rejection keeps its label.
+- **The language picker is on Home, Solution, Home Work, Planner, UPSC Live Agent and
+  Voice Notes.** All send `language` to the backend; the Solution screen's picker
+  re-explains the same question, so a student can switch without rescanning.
+- **Listen (TTS)** — read-aloud is a headline feature, on the Solution screen and on
+  each revealed Home Work answer. `tts/SpeechPlayer` is a process-wide `TextToSpeech`
+  (per-screen engines meant the first tap did nothing). `stripForSpeech` removes
+  Markdown and replaces LaTeX with "…" — read verbatim, `rac{1}{2}` is noise.
+  Missing voice data for Telugu/Hindi is common and surfaces as a toast, not a crash.
+  `MainActivity` stops it in `onStop`, shuts it down in `onDestroy` when `isFinishing`.
+- **There is deliberately no audio recording in this app.** It was built for build 20
+  and removed before release: every user is a school student, so under India's DPDP
+  Act 2023 every user is a child (under 18), and storing children's voice recordings
+  is a consent/retention burden the feature could not justify. Read-aloud gives the
+  accessibility benefit with none of it. Do not reintroduce `RECORD_AUDIO`, Whisper
+  or `firebase-storage` without revisiting that.
+- **Key concept + practice:** `SolutionViewModel.loadLearnExtras` calls `/learn` AFTER
+  the answer renders, so the answer is as fast as before and a failure is silent.
+- **Daily streak:** `usage/StreakPrefs`, counted in **Asia/Kolkata** (not device time,
+  so travel or a wrong clock can't cost a streak). Recorded only on a real answer —
+  never on app open — and mirrored best-effort to Firestore `users/{uid}`.
+- **Unit tests:** `./gradlew :app:testDebugUnitTest` (JUnit, JVM only — no emulator).
+  Covers `stripForSpeech` (what the Listen button actually sends to the engine).
 - **Toolchain: AGP 8.13.2, Gradle 9.0.0, Kotlin 2.0.21, JDK 21, compileSdk/targetSdk 36.**
   AGP 8.6.1 could not build compileSdk 36 (needs 8.9.1+). Play requires targetSdk 36
   for all updates from **31 Aug 2026**.

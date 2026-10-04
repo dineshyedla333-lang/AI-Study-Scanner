@@ -10,6 +10,7 @@ Or run directly with env python (no activation needed):
     -m uvicorn main:app --reload"
 """
 import functools
+import inspect
 import logging
 import os
 import re
@@ -31,10 +32,12 @@ from slowapi.util import get_remote_address
 from ai_solver import (
     AgenticSolveResult,
     HomeworkResult,
+    LearnResult,
     MissingAPIKeyError,
     PlannerResult,
     SolveResult,
     generate_homework,
+    generate_learn_extras,
     generate_study_plan,
     solve_agentic,
     solve_gemini,
@@ -49,7 +52,7 @@ import notifications
 import play_verify
 import quota
 from notifications import LiveAgentNotConfigured
-from prompts import build_prompt
+from prompts import LANGUAGES, build_prompt, normalize_language
 
 settings = load_settings()
 
@@ -136,7 +139,15 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # Paths that call paid AI (or store user data) and so need a verified caller.
 # /health, /metrics, /docs and /cron stay open.
-_AUTH_PATHS = ("/solve", "/homework", "/planner", "/news", "/ocr", "/usage")
+_AUTH_PATHS = (
+    "/solve",
+    "/homework",
+    "/planner",
+    "/news",
+    "/ocr",
+    "/usage",
+    "/learn",
+)
 
 
 @app.middleware("http")
@@ -164,20 +175,42 @@ def metered(kind: str):
     failed or blank AI answer never costs the student a free solve. Requests
     without a verified caller (older app builds while AUTH_MODE=optional) are
     not metered here and keep only the per-device rate limit.
+
+    Async handlers get their own wrapper. A sync wrapper around a coroutine
+    function would only ever see the coroutine being *created* — every failure
+    inside it would escape the `except` and the student would silently lose the
+    quota unit.
     """
 
     def decorator(fn):
+        def _refund(reservation):
+            if reservation is None:
+                return
+            try:
+                quota.refund(settings, reservation)
+            except Exception:
+                logger.warning("Quota refund failed", exc_info=True)
+
+        if inspect.iscoroutinefunction(fn):
+
+            @functools.wraps(fn)
+            async def async_wrapper(*args, **kwargs):
+                reservation = _reserve(kwargs["request"], kind)
+                try:
+                    return await fn(*args, **kwargs)
+                except BaseException:
+                    _refund(reservation)
+                    raise
+
+            return async_wrapper
+
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             reservation = _reserve(kwargs["request"], kind)
             try:
                 return fn(*args, **kwargs)
             except BaseException:
-                if reservation is not None:
-                    try:
-                        quota.refund(settings, reservation)
-                    except Exception:
-                        logger.warning("Quota refund failed", exc_info=True)
+                _refund(reservation)
                 raise
 
         return wrapper
@@ -208,27 +241,31 @@ class SolveRequest(BaseModel):
     # - Android can send: question + mode
     # - Existing clients can send: question_text + exam_mode
     question_text: str | None = Field(None, min_length=1, max_length=20000)
-    exam_mode: bool | None = None
     question: str | None = Field(None, min_length=1, max_length=20000)
+    # Exam Mode is gone — the app is a learning tool and every answer is now a
+    # step-by-step explanation. Still accepted and ignored so installs from
+    # before build 20 (which send it) do not get a 422.
+    exam_mode: bool | None = None
     mode: bool | None = None
     # Optional exam board override: Auto / CBSE / JEE / NEET / EAMCET.
     # "Auto" (or empty) lets the agent detect the board from the question.
     board: str | None = None
+    # Language the explanation is written in: en / hi / te / ta / kn / ml /
+    # mr / bn / gu. Absent (older builds) means English.
+    language: str | None = None
 
     def board_value(self) -> str:
         return (self.board or "Auto").strip() or "Auto"
 
-    def normalized(self) -> tuple[str, bool]:
+    def language_value(self) -> str:
+        return normalize_language(self.language)
+
+    def normalized(self) -> str:
         raw_question = self.question_text or self.question or ""
-        question_text = normalize_question_text(
+        return normalize_question_text(
             raw_question,
             max_chars=settings.max_question_chars,
         )
-        if self.exam_mode is not None:
-            exam_mode = bool(self.exam_mode)
-        else:
-            exam_mode = bool(self.mode)
-        return question_text, exam_mode
 
 
 class SolveResponse(BaseModel):
@@ -257,11 +294,16 @@ class AgenticSolveResponse(BaseModel):
 class HomeworkRequest(BaseModel):
     topic: str = Field(..., min_length=1, max_length=200)
     count: int = Field(10, ge=3, le=20)
-    exam_mode: bool = False
+    # Accepted and ignored; see SolveRequest.exam_mode.
+    exam_mode: bool | None = None
     board: str | None = None
+    language: str | None = None
 
     def board_value(self) -> str:
         return (self.board or "Auto").strip() or "Auto"
+
+    def language_value(self) -> str:
+        return normalize_language(self.language)
 
 
 class HomeworkItemResponse(BaseModel):
@@ -283,6 +325,10 @@ class PlannerRequest(BaseModel):
     months: int = Field(3, ge=1, le=12)
     hours_per_day: float = Field(3.0, ge=0.5, le=16.0)
     goal: str | None = Field(None, max_length=300)
+    language: str | None = None
+
+    def language_value(self) -> str:
+        return normalize_language(self.language)
 
 
 class PlannerMonthResponse(BaseModel):
@@ -305,6 +351,10 @@ class PlannerResponse(BaseModel):
 class NewsRequest(BaseModel):
     exam: str = "UPSC"
     count: int = Field(5, ge=1, le=10)
+    language: str | None = None
+
+    def language_value(self) -> str:
+        return normalize_language(self.language)
 
 
 class NewsItemResponse(BaseModel):
@@ -332,6 +382,9 @@ class SubscribeRequest(BaseModel):
     tz: str = "Asia/Kolkata"
     count: int = Field(5, ge=1, le=10)
     enabled: bool = True
+    # Language for the daily push Q&A; stored on the subscription so dispatch
+    # sends each student their own mother tongue.
+    language: str | None = None
 
 
 class UnsubscribeRequest(BaseModel):
@@ -347,12 +400,15 @@ class SimpleStatus(BaseModel):
 def health() -> dict[str, str]:
     # `model` shows which Groq model this deploy is actually using, so a retired
     # model or a stale GROQ_MODEL override on Render is visible without a solve.
+    # `languages` does the same for mother-tongue explanations: it says whether
+    # this deploy can answer in Telugu/Hindi without having to spend a solve.
     return {
         "status": "ok",
         "app": settings.app_name,
         "env": settings.env,
-        "v": "4",
+        "v": "5",
         "model": settings.groq_model,
+        "languages": ",".join(LANGUAGES),
     }
 
 
@@ -374,7 +430,7 @@ async def unhandled_exception_handler(
 @limiter.limit(os.getenv("SOLVE_RATE_LIMIT", "20/minute"))
 @metered(quota.SOLVE)
 def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveResponse:
-    question_text, exam_mode = req.normalized()
+    question_text = req.normalized()
     if not question_text:
         raise HTTPException(
             status_code=422,
@@ -382,16 +438,17 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
         )
 
     board = req.board_value()
+    language = req.language_value()
     # Same glyph-level OCR repair the agent path runs; single-shot has no
     # classifier, so this is its only chance to see `t^3` instead of `t³`/`t`.
     question_text = normalize_ocr(question_text)
     prompt = build_prompt(
         question_text,
-        exam_mode,
         exam_type=board,
         answer_style=settings.prompt_answer_style,
+        language=language,
     )
-    key = cache_key_for(question_text, exam_mode) + ":" + board
+    key = cache_key_for(question_text, language) + ":" + board
     cached_result = solve_cache.get(key)
     if isinstance(cached_result, SolveResult):
         logger.info(
@@ -400,7 +457,7 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
                 "provider": cached_result.provider,
                 "model": cached_result.model,
                 "latency_ms": cached_result.latency_ms,
-                "exam_mode": exam_mode,
+                "language": language,
                 "cache_hit": True,
                 "question_chars": len(question_text),
                 "prompt_chars": len(prompt),
@@ -417,9 +474,9 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
     try:
         result = solve_gemini(
             question_text=question_text,
-            exam_mode=exam_mode,
             settings=settings,
             prompt=prompt,
+            language=language,
         )
     except MissingAPIKeyError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -446,7 +503,7 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
             "provider": result.provider,
             "model": result.model,
             "latency_ms": result.latency_ms,
-            "exam_mode": exam_mode,
+            "language": language,
             "cache_hit": False,
             "question_chars": len(question_text),
             "prompt_chars": len(prompt),
@@ -469,7 +526,7 @@ def solve_endpoint(request: Request, req: SolveRequest = Body()) -> SolveRespons
 def agent_solve_endpoint(
     request: Request, req: SolveRequest = Body()
 ) -> AgenticSolveResponse:
-    question_text, exam_mode = req.normalized()
+    question_text = req.normalized()
     if not question_text:
         raise HTTPException(
             status_code=422,
@@ -477,7 +534,8 @@ def agent_solve_endpoint(
         )
 
     board = req.board_value()
-    key = "agent:" + cache_key_for(question_text, exam_mode) + ":" + board
+    language = req.language_value()
+    key = "agent:" + cache_key_for(question_text, language) + ":" + board
     cached = solve_cache.get(key)
     if isinstance(cached, AgenticSolveResult):
         logger.info(
@@ -501,9 +559,10 @@ def agent_solve_endpoint(
     try:
         result = solve_agentic(
             question_text=question_text,
-            exam_mode=exam_mode,
             settings=settings,
             board=board,
+            answer_style=settings.prompt_answer_style,
+            language=language,
         )
     except MissingAPIKeyError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -529,7 +588,7 @@ def agent_solve_endpoint(
             "model": result.model,
             "total_latency_ms": result.total_latency_ms,
             "steps": len(result.steps),
-            "exam_mode": exam_mode,
+            "language": language,
             "cache_hit": False,
         },
     )
@@ -547,6 +606,106 @@ def agent_solve_endpoint(
         total_latency_ms=result.total_latency_ms,
         interpreted_question=result.interpreted_question or None,
     )
+
+
+class LearnRequest(BaseModel):
+    question_text: str = Field(..., min_length=1, max_length=20000)
+    answer_text: str = Field(..., min_length=1, max_length=20000)
+    subject: str | None = Field(None, max_length=60)
+    topic: str | None = Field(None, max_length=120)
+    count: int = Field(3, ge=2, le=5)
+    language: str | None = None
+
+    def language_value(self) -> str:
+        return normalize_language(self.language)
+
+
+class LearnResponse(BaseModel):
+    provider: Literal["groq"]
+    model: str
+    key_concept: str
+    practice: list[HomeworkItemResponse]
+    latency_ms: int
+
+
+def _learn_to_response(result: LearnResult) -> LearnResponse:
+    return LearnResponse(
+        provider="groq",
+        model=result.model,
+        key_concept=result.key_concept,
+        practice=[
+            HomeworkItemResponse(question=i.question, answer=i.answer)
+            for i in result.practice
+        ],
+        latency_ms=result.latency_ms,
+    )
+
+
+@app.post("/learn", response_model=LearnResponse)
+@limiter.limit(os.getenv("LEARN_RATE_LIMIT", "20/minute"))
+def learn_endpoint(request: Request, req: LearnRequest = Body()) -> LearnResponse:
+    """The concept behind a question the student just solved, plus practice.
+
+    Not metered: the solve it follows already cost a quota unit, and charging
+    for the follow-up would train students not to tap it — which is exactly
+    the behaviour this feature exists to encourage. The per-device rate limit
+    still bounds abuse.
+    """
+    question_text = normalize_question_text(
+        req.question_text, max_chars=settings.max_question_chars
+    )
+    answer_text = normalize_question_text(
+        req.answer_text, max_chars=settings.max_question_chars
+    )
+    if not question_text or not answer_text:
+        raise HTTPException(
+            status_code=422, detail="question_text and answer_text are required"
+        )
+
+    language = req.language_value()
+    subject = (req.subject or "General").strip() or "General"
+    topic = (req.topic or "General").strip() or "General"
+    key = f"learn:{language}:{req.count}:{topic.lower()}:{question_text.lower()}"
+
+    cached = solve_cache.get(key)
+    if isinstance(cached, LearnResult):
+        return _learn_to_response(cached)
+
+    try:
+        result = generate_learn_extras(
+            question_text=question_text,
+            answer_text=answer_text,
+            settings=settings,
+            subject=subject,
+            topic=topic,
+            count=req.count,
+            language=language,
+        )
+    except MissingAPIKeyError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Learn extras failed")
+        raise HTTPException(
+            status_code=502, detail=f"Upstream AI provider error: {e}"
+        ) from e
+
+    if not result.key_concept and not result.practice:
+        raise HTTPException(
+            status_code=502,
+            detail="AI did not return a concept summary. Please try again.",
+        )
+
+    solve_cache.set(key, result)
+    logger.info(
+        "Learn extras generated",
+        extra={
+            "topic": topic,
+            "language": language,
+            "practice": len(result.practice),
+            "latency_ms": result.latency_ms,
+        },
+    )
+    return _learn_to_response(result)
 
 
 def _homework_to_response(result: HomeworkResult) -> HomeworkResponse:
@@ -574,14 +733,19 @@ def homework_endpoint(
 
     count = max(3, min(20, req.count))
     board = req.board_value()
-    mode_key = "exam" if req.exam_mode else "learn"
-    key = f"homework:{board}:{mode_key}:{count}:{topic.lower()}"
+    language = req.language_value()
+    key = f"homework:{board}:{language}:{count}:{topic.lower()}"
 
     cached = solve_cache.get(key)
     if isinstance(cached, HomeworkResult):
         logger.info(
             "Homework from cache",
-            extra={"topic_chars": len(topic), "count": count, "board": board},
+            extra={
+                "topic_chars": len(topic),
+                "count": count,
+                "board": board,
+                "language": language,
+            },
         )
         return _homework_to_response(cached)
 
@@ -589,9 +753,9 @@ def homework_endpoint(
         result = generate_homework(
             topic=topic,
             count=count,
-            exam_mode=bool(req.exam_mode),
             settings=settings,
             board=board,
+            language=language,
         )
     except MissingAPIKeyError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -616,7 +780,7 @@ def homework_endpoint(
             "count": len(result.items),
             "requested": count,
             "board": board,
-            "exam_mode": req.exam_mode,
+            "language": language,
             "latency_ms": result.latency_ms,
         },
     )
@@ -657,9 +821,10 @@ def planner_endpoint(
     hours = max(0.5, min(16.0, req.hours_per_day))
     goal = normalize_question_text(req.goal or "", max_chars=300).strip()
 
+    language = req.language_value()
     # Round hours for a clean cache key and prompt (e.g. 2.0, 3.5).
     hours = round(hours * 2) / 2
-    key = f"planner:{board.upper()}:{months}:{hours}:{goal.lower()}"
+    key = f"planner:{board.upper()}:{language}:{months}:{hours}:{goal.lower()}"
 
     cached = solve_cache.get(key)
     if isinstance(cached, PlannerResult):
@@ -676,6 +841,7 @@ def planner_endpoint(
             hours_per_day=hours,
             goal=goal or None,
             settings=settings,
+            language=language,
         )
     except MissingAPIKeyError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -787,14 +953,17 @@ def news_endpoint(
 ) -> NewsResponse:
     exam = (req.exam or "UPSC").strip().upper() or "UPSC"
     count = max(1, min(10, req.count))
-    key = f"news:{exam}:{count}"
+    language = req.language_value()
+    key = f"news:{exam}:{language}:{count}"
 
     cached = news_cache.get(key)
     if isinstance(cached, NewsResult):
         return _news_to_response(cached)
 
     try:
-        result = generate_news_qna(settings=settings, exam=exam, count=count)
+        result = generate_news_qna(
+            settings=settings, exam=exam, count=count, language=language
+        )
     except MissingAPIKeyError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
     except NewsUnavailableError as e:
@@ -819,6 +988,7 @@ def news_endpoint(
             "exam": exam,
             "count": len(result.items),
             "headlines_used": result.headlines_used,
+            "language": language,
             "latency_ms": result.latency_ms,
         },
     )
@@ -865,6 +1035,7 @@ def subscribe_endpoint(
         "tz": (req.tz or "Asia/Kolkata").strip() or "Asia/Kolkata",
         "count": max(1, min(10, req.count)),
         "enabled": bool(req.enabled),
+        "lang": normalize_language(req.language),
     }
     try:
         notifications.upsert_subscription(settings, sub)

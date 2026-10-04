@@ -6,12 +6,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudyscanner.agent.auth.ProfilePrefs
 import com.aistudyscanner.agent.history.HistoryRepository
+import com.aistudyscanner.agent.i18n.DEFAULT_LANGUAGE_CODE
+import com.aistudyscanner.agent.i18n.LanguagePrefs
 import com.aistudyscanner.agent.network.AgentStepResponse
+import com.aistudyscanner.agent.network.HomeworkItem
+import com.aistudyscanner.agent.network.LearnRequest
 import com.aistudyscanner.agent.network.ApiClient
 import com.aistudyscanner.agent.network.ApiErrors
 import com.aistudyscanner.agent.network.ServerTooSlowException
 import com.aistudyscanner.agent.network.ServerWarmup
 import com.aistudyscanner.agent.network.SolveRequest
+import com.aistudyscanner.agent.usage.StreakPrefs
+import com.aistudyscanner.agent.usage.Streak
 import com.aistudyscanner.agent.usage.TrialPrefs
 import com.aistudyscanner.agent.usage.UsageRepository
 import com.aistudyscanner.agent.usage.UsageStatus
@@ -31,8 +37,9 @@ data class DetectedInfo(
 
 data class SolutionUiState(
     val extractedText: String = "",
-    val examMode: Boolean = true,
     val examBoard: String = "Auto",
+    /** Language the explanation is asked for (see i18n/AnswerLanguage). */
+    val language: String = DEFAULT_LANGUAGE_CODE,
     val isLoading: Boolean = false,
     val currentAgentStep: String = "",
     val agentSteps: List<AgentStepResponse> = emptyList(),
@@ -44,6 +51,13 @@ data class SolutionUiState(
     val usage: UsageStatus? = null,
     /** Free trial used up by an unregistered user; the screen sends them to Login. */
     val needsRegistration: Boolean = false,
+    /** "Key concept + practice", fetched after the answer lands. */
+    val isLoadingLearn: Boolean = false,
+    val keyConcept: String = "",
+    val practice: List<HomeworkItem> = emptyList(),
+    val revealedPractice: Set<Int> = emptySet(),
+    /** Days in a row the student has solved something. */
+    val streak: Streak = Streak(),
 )
 
 class SolutionViewModel(
@@ -56,8 +70,15 @@ class SolutionViewModel(
         _uiState.value = _uiState.value.copy(extractedText = text)
     }
 
-    fun setExamMode(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(examMode = enabled)
+    /** Changes the explanation language and remembers it for next time. */
+    fun setLanguage(context: Context, code: String) {
+        LanguagePrefs.set(context, code)
+        _uiState.value = _uiState.value.copy(language = code)
+    }
+
+    /** Loads the saved language when the screen opens. */
+    fun loadLanguage(context: Context) {
+        _uiState.value = _uiState.value.copy(language = LanguagePrefs.get(context))
     }
 
     fun setExamBoard(board: String) {
@@ -132,6 +153,9 @@ class SolutionViewModel(
             interpretedQuestion = null,
             agentSteps = emptyList(),
             detected = DetectedInfo(),
+            keyConcept = "",
+            practice = emptyList(),
+            revealedPractice = emptySet(),
             currentAgentStep = "Checking quota…",
         )
 
@@ -157,8 +181,8 @@ class SolutionViewModel(
                 val resp = ApiClient.api.agentSolve(
                     SolveRequest(
                         question_text = question,
-                        exam_mode = _uiState.value.examMode,
                         board = _uiState.value.examBoard,
+                        language = _uiState.value.language,
                     )
                 )
 
@@ -170,7 +194,10 @@ class SolutionViewModel(
                 HistoryRepository.getInstance(context).saveSolvedQuestion(
                     questionText = question,
                     answerText = resp.answer,
-                    examMode = _uiState.value.examMode,
+                    // The Room column predates the learning reposition; every
+                    // answer is now a step-by-step explanation, so it is
+                    // always false rather than migrating the schema.
+                    examMode = false,
                 )
 
                 // A free trial solve is spent only on a real answer, never on a
@@ -179,16 +206,31 @@ class SolutionViewModel(
                     TrialPrefs.record(context)
                 }
 
+                // A real answer is the only thing that counts as studying,
+                // so the streak is recorded here and not on app open.
+                val streak = if (resp.answer.isNotBlank()) {
+                    StreakPrefs.recordActivity(context)
+                } else {
+                    _uiState.value.streak
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     currentAgentStep = "",
                     agentSteps = resp.steps,
                     detected = detected,
                     answer = resp.answer,
+                    streak = streak,
                     interpretedQuestion = resp.interpreted_question
                         ?.trim()
                         ?.takeIf { it.isNotEmpty() && normalise(it) != normalise(question) },
                 )
+
+                // Fire-and-forget: the answer is already on screen and the
+                // concept card fills in behind it. A failure here is silent
+                // by design — it costs the student nothing and saying
+                // "couldn't load the extra bit" only adds noise.
+                loadLearnExtras(question, resp.answer, detected)
             } catch (e: HttpException) {
                 refund(context, debited)
                 val server = ApiErrors.parse(e.response()?.errorBody()?.string())
@@ -230,6 +272,55 @@ class SolutionViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * Loads the "key concept + practice" card for the answer just shown.
+     *
+     * A separate request on purpose: the answer reaches the student as fast as
+     * it ever did, and /learn is not metered, so this never costs a free solve.
+     */
+    private fun loadLearnExtras(
+        question: String,
+        answer: String,
+        detected: DetectedInfo,
+    ) {
+        if (answer.isBlank()) return
+        _uiState.value = _uiState.value.copy(isLoadingLearn = true)
+        viewModelScope.launch {
+            val result = runCatching {
+                ApiClient.api.learn(
+                    LearnRequest(
+                        question_text = question,
+                        answer_text = answer,
+                        subject = detected.subject.ifBlank { null },
+                        topic = detected.topic.ifBlank { null },
+                        count = 3,
+                        language = _uiState.value.language,
+                    )
+                )
+            }.getOrNull()
+
+            _uiState.value = _uiState.value.copy(
+                isLoadingLearn = false,
+                keyConcept = result?.key_concept.orEmpty(),
+                practice = result?.practice.orEmpty(),
+                revealedPractice = emptySet(),
+            )
+        }
+    }
+
+    fun togglePracticeAnswer(index: Int) {
+        val current = _uiState.value.revealedPractice
+        _uiState.value = _uiState.value.copy(
+            revealedPractice =
+                if (index in current) current - index else current + index,
+        )
+    }
+
+    /** Loads today's streak without changing it (screen open). */
+    fun loadStreak(context: Context) {
+        _uiState.value = _uiState.value.copy(streak = StreakPrefs.get(context))
     }
 
     /** Hands back a solve debited for a request that then failed. Best effort — if

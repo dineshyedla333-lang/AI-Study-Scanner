@@ -162,7 +162,7 @@ def client(monkeypatch, store):
 
     monkeypatch.setattr(auth, "_verify_with_firebase", fake_verify)
     main.solve_cache._data.clear()
-    def fake_solve(question_text, exam_mode, settings, board):
+    def fake_solve(question_text, settings, board, answer_style, language):
         return main.AgenticSolveResult(provider="groq", model="m", answer="42")
 
     monkeypatch.setattr(main, "solve_agentic", fake_solve)

@@ -8,6 +8,7 @@ turns into a clear 503.
 Firestore schema — collection `news_subscriptions`, document id = FCM token:
   token: str, userId: str, email: str, phone: str, exam: str,
   times: [ "HH:MM" ], tz: str (IANA), count: int, enabled: bool,
+  lang: str (language code for the Q&A, default "en"),
   lastSentSlot: str ("YYYY-MM-DD HH:MM"), updatedAt: server timestamp
 
 Registered users — collection `users`, document id = Firebase uid:
@@ -23,6 +24,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from config import Settings
+from prompts import normalize_language
 
 logger = logging.getLogger("ai-study-scanner.notifications")
 
@@ -179,8 +181,9 @@ def dispatch(settings: Settings, now_utc: datetime | None = None) -> DispatchSum
     window = settings.news_dispatch_window_min
     summary = DispatchSummary()
 
-    # Cache generated news per exam so one cron run hits Groq once per exam.
-    news_by_exam: dict[str, list[dict]] = {}
+    # Cache generated news per (exam, language) so one cron run hits Groq once
+    # per distinct audience, not once per subscriber.
+    news_by_audience: dict[tuple[str, str], list[dict]] = {}
 
     docs = list(_db.collection(_COLLECTION).where("enabled", "==", True).stream())
     summary.checked = len(docs)
@@ -192,6 +195,7 @@ def dispatch(settings: Settings, now_utc: datetime | None = None) -> DispatchSum
         tz_name = sub.get("tz") or "Asia/Kolkata"
         exam = (sub.get("exam") or "UPSC").upper()
         count = int(sub.get("count") or 5)
+        lang = normalize_language(sub.get("lang"))
 
         slot, slot_key = _due_slot(times, tz_name, now_utc, window)
         if slot is None:
@@ -200,12 +204,15 @@ def dispatch(settings: Settings, now_utc: datetime | None = None) -> DispatchSum
             continue  # already delivered this slot today
         summary.due += 1
 
-        if exam not in news_by_exam:
-            result = generate_news_qna(settings=settings, exam=exam, count=count)
-            news_by_exam[exam] = [
+        audience = (exam, lang)
+        if audience not in news_by_audience:
+            result = generate_news_qna(
+                settings=settings, exam=exam, count=count, language=lang
+            )
+            news_by_audience[audience] = [
                 {"question": i.question, "answer": i.answer} for i in result.items
             ]
-        qna = news_by_exam[exam]
+        qna = news_by_audience[audience]
         if not qna:
             continue
 

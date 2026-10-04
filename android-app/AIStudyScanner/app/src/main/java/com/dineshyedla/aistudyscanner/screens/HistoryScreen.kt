@@ -128,8 +128,10 @@ private fun HistoryItemCard(item: SolvedQuestionEntity) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            // The examMode column is a leftover from before the learning
+            // reposition; old rows may still have it set, new ones never do.
             Text(
-                text = if (item.examMode) "Exam Mode" else "Practice Mode",
+                text = "Step-by-step solution",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,

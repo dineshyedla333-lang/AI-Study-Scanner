@@ -13,12 +13,17 @@ from config import Settings
 from ocr_repair import describe_repair, normalize_ocr
 from prompts import (
     AGENT_SOLVE_PROMPT_TEMPLATE,
+    BOARD_GUIDE,
     CLASSIFY_PROMPT_TEMPLATE,
-    EXAM_MODE_GUIDE,
     ANSWER_STYLE_GUIDE,
+    DEFAULT_LANGUAGE,
     HOMEWORK_PROMPT_TEMPLATE,
+    LEARN_PROMPT_TEMPLATE,
     PLANNER_EXAM_GUIDE,
     PLANNER_PROMPT_TEMPLATE,
+    is_translated,
+    language_directive,
+    normalize_language,
     normalize_planner_exam,
     _normalize_answer_style,
     _normalize_exam_type,
@@ -30,6 +35,21 @@ logger = logging.getLogger("ai-study-scanner")
 
 def _is_auto_board(board: str | None) -> bool:
     return (board or "").strip().lower() in ("", "auto")
+
+
+def _token_budget(base: int, settings: Settings, language: str) -> int:
+    """Output-token budget, widened for non-English answers.
+
+    Indian-script text costs roughly two to three times as many tokens as the
+    same explanation in English, and the budget also has to cover the
+    reasoning model's hidden thinking. Without this a Telugu or Hindi
+    step-by-step answer stops mid-working — and the truncation retry in
+    `_call_groq` only fires on a near-empty reply, so the student would be
+    served the half answer.
+    """
+    if not is_translated(language):
+        return base
+    return int(base * settings.groq_translated_token_multiplier)
 
 
 @dataclass(frozen=True)
@@ -66,6 +86,17 @@ class AgenticSolveResult:
 class HomeworkItem:
     question: str
     answer: str
+
+
+@dataclass(frozen=True)
+class LearnResult:
+    """The "learn this, then try these" card under a solved question."""
+
+    provider: str
+    model: str
+    key_concept: str = ""
+    practice: list[HomeworkItem] = field(default_factory=list)
+    latency_ms: int = 0
 
 
 @dataclass(frozen=True)
@@ -156,26 +187,23 @@ def _call_groq(
 def solve_gemini(
     *,
     question_text: str,
-    exam_mode: bool,
     settings: Settings,
     prompt: str,
+    language: str = DEFAULT_LANGUAGE,
 ) -> SolveResult:
     if not settings.groq_api_key:
         raise MissingAPIKeyError("GROQ_API_KEY is not configured")
 
     client = Groq(api_key=settings.groq_api_key)
-    started = time.perf_counter()
 
     text, latency_ms = _call_groq(
         client,
         model=settings.groq_model,
         prompt=prompt,
-        temperature=(
-            settings.groq_temperature_exam
-            if exam_mode
-            else settings.groq_temperature_default
+        temperature=settings.groq_temperature_default,
+        max_tokens=_token_budget(
+            settings.groq_max_output_tokens, settings, language
         ),
-        max_tokens=settings.groq_max_output_tokens,
         timeout=settings.groq_timeout_s,
         reasoning_effort=settings.groq_reasoning_effort,
     )
@@ -192,11 +220,11 @@ def solve_gemini(
 def solve_agentic(
     *,
     question_text: str,
-    exam_mode: bool,
     settings: Settings,
     board: str = "Auto",
     exam_type: str = "CBSE",
-    answer_style: str = "compact",
+    answer_style: str = "explain",
+    language: str = DEFAULT_LANGUAGE,
 ) -> AgenticSolveResult:
     if not settings.groq_api_key:
         raise MissingAPIKeyError("GROQ_API_KEY is not configured")
@@ -239,7 +267,7 @@ def solve_agentic(
     else:
         norm_exam = _normalize_exam_type(board)
     norm_style = _normalize_answer_style(answer_style)
-    mode_line = "exam mode on: keep steps short and direct." if exam_mode else ""
+    norm_language = normalize_language(language)
 
     solve_question = _pick_corrected_question(
         cleaned_question, classification.get("corrected_question")
@@ -263,21 +291,19 @@ def solve_agentic(
         difficulty=classification.get("difficulty", "Medium"),
         exam_board=norm_exam,
         approach=classification.get("approach", "Solve step by step"),
-        exam_guide=EXAM_MODE_GUIDE[norm_exam],
+        exam_guide=BOARD_GUIDE[norm_exam],
         style_guide=ANSWER_STYLE_GUIDE[norm_style],
-        mode_line=mode_line,
+        language_guide=language_directive(norm_language),
         question_text=solve_question,
     )
     solve_text, solve_ms = _call_groq(
         client,
         model=settings.groq_model,
         prompt=solve_prompt,
-        temperature=(
-            settings.groq_temperature_exam
-            if exam_mode
-            else settings.groq_temperature_default
+        temperature=settings.groq_temperature_default,
+        max_tokens=_token_budget(
+            settings.groq_max_output_tokens, settings, norm_language
         ),
-        max_tokens=settings.groq_max_output_tokens,
         timeout=settings.groq_timeout_s,
         reasoning_effort=settings.groq_reasoning_effort,
     )
@@ -374,9 +400,9 @@ def generate_homework(
     *,
     topic: str,
     count: int,
-    exam_mode: bool,
     settings: Settings,
     board: str = "Auto",
+    language: str = DEFAULT_LANGUAGE,
 ) -> HomeworkResult:
     if not settings.groq_api_key:
         raise MissingAPIKeyError("GROQ_API_KEY is not configured")
@@ -387,19 +413,18 @@ def generate_homework(
     else:
         norm_exam = _normalize_exam_type(board)
         exam_label = norm_exam
-        exam_guide = EXAM_MODE_GUIDE[norm_exam]
+        exam_guide = BOARD_GUIDE[norm_exam]
 
-    mode_line = (
-        "Keep each answer short and direct (exam style)."
-        if exam_mode
-        else "Give clear, step-by-step answers suitable for self-study."
-    )
-
+    norm_language = normalize_language(language)
     prompt = HOMEWORK_PROMPT_TEMPLATE.format(
         count=count,
         exam_label=exam_label,
         exam_guide=exam_guide,
-        mode_line=mode_line,
+        style_line=(
+            "Give clear, step-by-step answers suitable for self-study: show"
+            " the working, not only the result."
+        ),
+        language_guide=language_directive(norm_language, json_mode=True),
         topic=topic,
     )
 
@@ -409,7 +434,9 @@ def generate_homework(
         model=settings.groq_model,
         prompt=prompt,
         temperature=settings.groq_temperature_default,
-        max_tokens=settings.groq_homework_max_output_tokens,
+        max_tokens=_token_budget(
+            settings.groq_homework_max_output_tokens, settings, norm_language
+        ),
         timeout=settings.groq_homework_timeout_s,
         reasoning_effort=settings.groq_reasoning_effort,
     )
@@ -422,6 +449,91 @@ def generate_homework(
         items=items,
         latency_ms=latency_ms,
     )
+
+
+def generate_learn_extras(
+    *,
+    question_text: str,
+    answer_text: str,
+    settings: Settings,
+    subject: str = "General",
+    topic: str = "General",
+    count: int = 3,
+    language: str = DEFAULT_LANGUAGE,
+) -> LearnResult:
+    """The key concept behind a solved question, plus questions to try.
+
+    Deliberately a separate call from the solve: the answer reaches the student
+    as fast as it does today and this fills in behind it. It is also why the
+    endpoint is not metered as a solve — the student already paid one for the
+    answer, and charging again for the follow-up would teach them not to tap it.
+    """
+    if not settings.groq_api_key:
+        raise MissingAPIKeyError("GROQ_API_KEY is not configured")
+
+    norm_language = normalize_language(language)
+    count = max(2, min(5, count))
+    prompt = LEARN_PROMPT_TEMPLATE.format(
+        count=count,
+        subject=subject or "General",
+        topic=topic or "General",
+        language_guide=language_directive(norm_language, json_mode=True),
+        question_text=question_text,
+        answer_text=answer_text,
+    )
+
+    client = Groq(api_key=settings.groq_api_key)
+    text, latency_ms = _call_groq(
+        client,
+        model=settings.groq_model,
+        prompt=prompt,
+        temperature=settings.groq_temperature_default,
+        max_tokens=_token_budget(
+            settings.groq_learn_max_output_tokens, settings, norm_language
+        ),
+        timeout=settings.groq_learn_timeout_s,
+        reasoning_effort=settings.groq_reasoning_effort,
+    )
+
+    key_concept, practice = _parse_learn_json(text, count)
+    return LearnResult(
+        provider="groq",
+        model=settings.groq_model,
+        key_concept=key_concept,
+        practice=practice,
+        latency_ms=latency_ms,
+    )
+
+
+def _parse_learn_json(text: str, count: int) -> tuple[str, list[HomeworkItem]]:
+    """Best-effort parse of {key_concept, practice:[{question, answer}]}."""
+    raw = (text or "").strip()
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        raw = raw[start : end + 1]
+
+    try:
+        data = json.loads(raw)
+    except Exception:
+        # Same LaTeX-backslash problem the homework parser handles.
+        try:
+            data = json.loads(_JSON_BAD_ESCAPE.sub(r"\\\\", raw))
+        except Exception:
+            return "", []
+    if not isinstance(data, dict):
+        return "", []
+
+    key_concept = str(data.get("key_concept", "")).strip()
+    practice: list[HomeworkItem] = []
+    for obj in data.get("practice", []) or []:
+        if not isinstance(obj, dict):
+            continue
+        question = str(obj.get("question", "")).strip()
+        answer = str(obj.get("answer", "")).strip()
+        if question:
+            practice.append(HomeworkItem(question=question, answer=answer))
+    return key_concept, practice[:count]
 
 
 def _parse_planner_json(text: str, months: int) -> tuple[str, list[PlannerMonth]]:
@@ -475,6 +587,7 @@ def generate_study_plan(
     hours_per_day: float,
     goal: str | None,
     settings: Settings,
+    language: str = DEFAULT_LANGUAGE,
 ) -> PlannerResult:
     if not settings.groq_api_key:
         raise MissingAPIKeyError("GROQ_API_KEY is not configured")
@@ -492,12 +605,14 @@ def generate_study_plan(
         f"The student's stated goal: {goal_text}.\n" if goal_text else ""
     )
 
+    norm_language = normalize_language(language)
     prompt = PLANNER_PROMPT_TEMPLATE.format(
         exam_label=exam_label,
         exam_guide=exam_guide,
         months=months,
         hours_per_day=hours_per_day,
         goal_line=goal_line,
+        language_guide=language_directive(norm_language, json_mode=True),
     )
 
     client = Groq(api_key=settings.groq_api_key)
@@ -506,7 +621,9 @@ def generate_study_plan(
         model=settings.groq_model,
         prompt=prompt,
         temperature=settings.groq_temperature_default,
-        max_tokens=settings.groq_planner_max_output_tokens,
+        max_tokens=_token_budget(
+            settings.groq_planner_max_output_tokens, settings, norm_language
+        ),
         timeout=settings.groq_planner_timeout_s,
         reasoning_effort=settings.groq_reasoning_effort,
     )

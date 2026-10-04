@@ -39,6 +39,16 @@ class Settings:
     # AI Planner builds a multi-month program, so it needs the biggest budget.
     groq_planner_max_output_tokens: int = 4096
     groq_planner_timeout_s: float = 60.0
+    # Indian-script answers (Telugu, Hindi, …) need two to three times as many
+    # tokens as the same explanation in English, so every output budget above
+    # is multiplied by this when the student picked a mother tongue. Too low
+    # and the step-by-step working stops half way through.
+    groq_translated_token_multiplier: float = 2.0
+    # "Key concept + practice" card shown under each answer. Small budget: it is
+    # three short items, and it runs as a second request after the answer.
+    groq_learn_max_output_tokens: int = 1536
+    groq_learn_timeout_s: float = 45.0
+
 
     # Cost controls
     max_question_chars: int = 4000
@@ -130,8 +140,15 @@ def load_settings() -> Settings:
         groq_planner_timeout_s=float(
             os.getenv("GROQ_PLANNER_TIMEOUT_S", "60.0")
         ),
+        groq_translated_token_multiplier=float(
+            os.getenv("GROQ_TRANSLATED_TOKEN_MULTIPLIER", "2.0")
+        ),
+        groq_learn_max_output_tokens=int(
+            os.getenv("GROQ_LEARN_MAX_OUTPUT_TOKENS", "1536")
+        ),
+        groq_learn_timeout_s=float(os.getenv("GROQ_LEARN_TIMEOUT_S", "45.0")),
         max_question_chars=int(os.getenv("MAX_QUESTION_CHARS", "4000")),
-        prompt_answer_style=os.getenv("PROMPT_ANSWER_STYLE", "compact"),
+        prompt_answer_style=os.getenv("PROMPT_ANSWER_STYLE", "explain"),
         solve_cache_ttl_s=int(os.getenv("SOLVE_CACHE_TTL_S", "900")),
         solve_cache_max_size=int(os.getenv("SOLVE_CACHE_MAX_SIZE", "256")),
         news_rss_feeds=_parse_feeds(os.getenv("NEWS_RSS_FEEDS")),

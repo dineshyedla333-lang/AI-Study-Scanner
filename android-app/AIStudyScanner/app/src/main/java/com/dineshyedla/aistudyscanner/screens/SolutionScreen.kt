@@ -61,6 +61,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aistudyscanner.agent.ads.RewardedAdManager
 import com.aistudyscanner.agent.network.AgentStepResponse
+import com.aistudyscanner.agent.network.HomeworkItem
+import com.aistudyscanner.agent.tts.SpeechFailure
+import com.aistudyscanner.agent.tts.SpeechPlayer
 import com.aistudyscanner.agent.ui.MathMarkdown
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,17 +73,18 @@ fun SolutionScreen(
     onUpgrade: () -> Unit = {},
     onRegister: () -> Unit = {},
     extractedText: String,
-    initialExamMode: Boolean = true,
     board: String = "Auto",
     vm: SolutionViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val state by vm.uiState.collectAsState()
+    val isSpeaking by SpeechPlayer.isSpeaking.collectAsState()
 
     LaunchedEffect(extractedText) {
         vm.setQuestion(extractedText)
-        vm.setExamMode(initialExamMode)
+        vm.loadLanguage(context)
+        vm.loadStreak(context)
         vm.setExamBoard(board)
         if (extractedText.isNotBlank()) {
             vm.solve(context)
@@ -97,7 +101,7 @@ fun SolutionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AI Agent Solution") },
+                title = { Text("Step-by-step Solution") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -117,6 +121,14 @@ fun SolutionScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
+            if (state.streak.current > 0) {
+                Text(
+                    text = state.streak.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
             // Editable question text — user can fix OCR mistakes
             Text(
                 text = "Question",
@@ -130,6 +142,14 @@ fun SolutionScreen(
                 label = { Text("Tap to edit if scanner made mistakes") },
                 minLines = 3,
                 maxLines = 8,
+            )
+
+            // Changing the language here re-explains the same question, so a
+            // student who cannot follow the English can switch and try again
+            // without rescanning.
+            LanguageSelector(
+                language = state.language,
+                onLanguageChange = { vm.setLanguage(context, it) },
             )
 
             // Usage quota
@@ -146,7 +166,7 @@ fun SolutionScreen(
                 enabled = !state.isLoading && state.extractedText.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Solve with AI Agent")
+                Text("Explain step by step")
             }
 
             // Agent thinking indicator
@@ -267,19 +287,24 @@ fun SolutionScreen(
             // Agent reasoning steps (collapsible)
             if (state.agentSteps.isNotEmpty()) {
                 Text(
-                    text = "Agent Reasoning",
+                    text = "How the AI worked it out",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 state.agentSteps.forEach { step -> AgentStepCard(step = step) }
             }
 
-            // Final answer
+            // The worked explanation
             state.answer?.let { ans ->
                 Text(
-                    text = "Answer",
+                    text = "Step-by-step solution",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "For learning and practice.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -296,6 +321,32 @@ fun SolutionScreen(
                         modifier = Modifier.padding(14.dp),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
+                }
+
+                // Listen — reads the explanation aloud in the chosen language.
+                // Full width and above Share/Copy because for a student who
+                // reads slowly this is the point of the screen, not an extra.
+                Button(
+                    onClick = {
+                        if (isSpeaking) {
+                            SpeechPlayer.stop()
+                        } else {
+                            SpeechPlayer.speak(
+                                context = context,
+                                markdown = ans,
+                                languageCode = state.language,
+                            ) { failure ->
+                                Toast.makeText(
+                                    context,
+                                    speechErrorMessage(failure, state.language),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (isSpeaking) "Stop listening" else "🔊 Listen")
                 }
 
                 // Share + Copy buttons
@@ -316,9 +367,131 @@ fun SolutionScreen(
                         Text("Copy")
                     }
                 }
+
+                LearnMoreSection(
+                    isLoading = state.isLoadingLearn,
+                    keyConcept = state.keyConcept,
+                    practice = state.practice,
+                    revealed = state.revealedPractice,
+                    onToggle = { vm.togglePracticeAnswer(it) },
+                )
             }
 
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+/**
+ * "You just solved one — here is the idea behind it, now try these."
+ *
+ * Renders nothing at all when the follow-up call failed: the answer above is
+ * complete on its own, and an empty card explaining its own absence would be
+ * worse than silence.
+ */
+@Composable
+private fun LearnMoreSection(
+    isLoading: Boolean,
+    keyConcept: String,
+    practice: List<HomeworkItem>,
+    revealed: Set<Int>,
+    onToggle: (Int) -> Unit,
+) {
+    if (isLoading) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+            )
+            Text(
+                text = "Finding the key concept…",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    if (keyConcept.isBlank() && practice.isEmpty()) return
+
+    Spacer(Modifier.height(4.dp))
+
+    if (keyConcept.isNotBlank()) {
+        Text(
+            text = "Key concept",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            ),
+        ) {
+            MathMarkdown(
+                markdown = keyConcept,
+                modifier = Modifier.padding(14.dp),
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+    }
+
+    if (practice.isEmpty()) return
+
+    Text(
+        text = "Now try these",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Text(
+        text = "Same idea, different numbers. Solve on paper, then check.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    practice.forEachIndexed { index, item ->
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = "Q${index + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(4.dp))
+                MathMarkdown(markdown = item.question)
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { onToggle(index) }) {
+                    Text(if (index in revealed) "Hide Answer" else "Show Answer")
+                }
+                AnimatedVisibility(
+                    visible = index in revealed,
+                    enter = expandVertically(),
+                    exit = shrinkVertically(),
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor =
+                                MaterialTheme.colorScheme.primaryContainer,
+                        ),
+                    ) {
+                        MathMarkdown(
+                            markdown = item.answer.ifBlank { "No answer provided." },
+                            modifier = Modifier.padding(12.dp),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
         }
     }
 }

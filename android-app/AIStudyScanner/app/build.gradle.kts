@@ -148,5 +148,7 @@ dependencies {
     // Sentry (error monitoring)
     implementation(libs.sentry.android)
 
+    testImplementation(libs.junit)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

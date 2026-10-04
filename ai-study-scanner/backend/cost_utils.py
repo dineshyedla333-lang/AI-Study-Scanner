@@ -26,9 +26,13 @@ def normalize_question_text(question_text: str, max_chars: int) -> str:
     return text
 
 
-def cache_key_for(question_text: str, exam_mode: bool) -> str:
-    mode_key = "exam" if exam_mode else "learn"
-    return f"{mode_key}:{question_text}"
+def cache_key_for(question_text: str, language: str) -> str:
+    """Cache key for one question.
+
+    The language is part of the key: without it the first student to ask a
+    question decides which language every later student gets back.
+    """
+    return f"{(language or 'en').lower()}:{question_text}"
 
 
 @dataclass(frozen=True)

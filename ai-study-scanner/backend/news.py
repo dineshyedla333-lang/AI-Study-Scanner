@@ -12,9 +12,19 @@ from xml.etree import ElementTree as ET
 
 from groq import Groq
 
-from ai_solver import MissingAPIKeyError, _call_groq, _parse_homework_json
+from ai_solver import (
+    MissingAPIKeyError,
+    _call_groq,
+    _parse_homework_json,
+    _token_budget,
+)
 from config import Settings
-from prompts import NEWS_QNA_PROMPT_TEMPLATE
+from prompts import (
+    DEFAULT_LANGUAGE,
+    NEWS_QNA_PROMPT_TEMPLATE,
+    language_directive,
+    normalize_language,
+)
 
 _UA = "Mozilla/5.0 (compatible; AIStudyScanAgent/1.0; +https://ai-study-scanner.onrender.com)"
 
@@ -37,6 +47,7 @@ class NewsResult:
     headlines_used: int
     items: list[NewsItem] = field(default_factory=list)
     latency_ms: int = 0
+    language: str = DEFAULT_LANGUAGE
 
 
 def _strip_tags(text: str) -> str:
@@ -113,6 +124,7 @@ def generate_news_qna(
     settings: Settings,
     exam: str = "UPSC",
     count: int = 5,
+    language: str = DEFAULT_LANGUAGE,
 ) -> NewsResult:
     if not settings.groq_api_key:
         raise MissingAPIKeyError("GROQ_API_KEY is not configured")
@@ -128,9 +140,11 @@ def generate_news_qna(
             "Could not fetch any news headlines right now. Try again shortly."
         )
 
+    norm_language = normalize_language(language)
     prompt = NEWS_QNA_PROMPT_TEMPLATE.format(
         exam=exam,
         count=count,
+        language_guide=language_directive(norm_language, json_mode=True),
         headlines="\n".join(f"- {h}" for h in headlines),
     )
 
@@ -140,7 +154,9 @@ def generate_news_qna(
         model=settings.groq_model,
         prompt=prompt,
         temperature=0.3,
-        max_tokens=settings.groq_homework_max_output_tokens,
+        max_tokens=_token_budget(
+            settings.groq_homework_max_output_tokens, settings, norm_language
+        ),
         timeout=settings.groq_homework_timeout_s,
         reasoning_effort=settings.groq_reasoning_effort,
     )
@@ -154,4 +170,5 @@ def generate_news_qna(
         headlines_used=len(headlines),
         items=items,
         latency_ms=latency_ms,
+        language=norm_language,
     )

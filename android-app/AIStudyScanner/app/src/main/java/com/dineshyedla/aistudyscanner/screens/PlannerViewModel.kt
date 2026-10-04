@@ -3,6 +3,8 @@ package com.aistudyscanner.agent.screens
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aistudyscanner.agent.i18n.DEFAULT_LANGUAGE_CODE
+import com.aistudyscanner.agent.i18n.LanguagePrefs
 import com.aistudyscanner.agent.network.ApiClient
 import com.aistudyscanner.agent.network.ApiErrors
 import com.aistudyscanner.agent.network.PlannerMonth
@@ -29,6 +31,7 @@ data class PlannerUiState(
     val months: Int = 3,
     val hoursPerDay: Int = 4,
     val goal: String = "",
+    val language: String = DEFAULT_LANGUAGE_CODE,
     val isLoading: Boolean = false,
     val overview: String = "",
     val plan: List<PlannerMonth> = emptyList(),
@@ -58,6 +61,15 @@ class PlannerViewModel(
         _uiState.value = _uiState.value.copy(goal = value)
     }
 
+    fun setLanguage(context: Context, code: String) {
+        LanguagePrefs.set(context, code)
+        _uiState.value = _uiState.value.copy(language = code)
+    }
+
+    fun loadLanguage(context: Context) {
+        _uiState.value = _uiState.value.copy(language = LanguagePrefs.get(context))
+    }
+
     fun generate(context: Context) {
         _uiState.value = _uiState.value.copy(
             isLoading = true,
@@ -84,6 +96,7 @@ class PlannerViewModel(
                         months = _uiState.value.months,
                         hours_per_day = _uiState.value.hoursPerDay.toFloat(),
                         goal = _uiState.value.goal.trim().ifBlank { null },
+                        language = _uiState.value.language,
                     )
                 )
 

@@ -3,7 +3,6 @@ package com.aistudyscanner.agent.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,21 +21,23 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aistudyscanner.agent.billing.BillingManager
+import com.aistudyscanner.agent.i18n.LanguagePrefs
+import com.aistudyscanner.agent.usage.StreakPrefs
 
 // Distinct, theme-friendly colors for the four main actions (white text on each).
 private val ScanColor = Color(0xFF6750A4) // brand purple
@@ -48,9 +49,9 @@ private val NewsColor = Color(0xFFC2185B) // rose/crimson (current affairs)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onScanQuestion: (examMode: Boolean, board: String) -> Unit,
-    onUploadScreenshot: (examMode: Boolean, board: String) -> Unit,
-    onHomework: (examMode: Boolean, board: String) -> Unit,
+    onScanQuestion: (board: String) -> Unit,
+    onUploadScreenshot: (board: String) -> Unit,
+    onHomework: (board: String) -> Unit,
     onNewsAgent: () -> Unit,
     onPlanner: (board: String) -> Unit,
     onProfile: () -> Unit,
@@ -58,8 +59,15 @@ fun HomeScreen(
     onExplainPage: () -> Unit,
     onHistory: () -> Unit,
 ) {
-    var examMode by remember { mutableStateOf(true) }
+    val context = LocalContext.current
     var board by remember { mutableStateOf(BOARD_OPTIONS.first()) }
+    // Read once and written straight back to prefs, so the choice survives the
+    // app being closed — a student picks their language once, not every day.
+    var language by remember { mutableStateOf(LanguagePrefs.get(context)) }
+    // Read, never written here: the streak is earned by solving, not by
+    // opening the app, so this screen only displays it.
+    var streak by remember { mutableStateOf(StreakPrefs.get(context)) }
+    LaunchedEffect(Unit) { streak = StreakPrefs.get(context) }
 
     Scaffold(
         topBar = {
@@ -84,38 +92,49 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Exam Mode toggle card
+            Text(
+                text = "Scan a question and learn how to solve it, step by step.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // Daily streak. Shown even at zero, because "start your streak" is
+            // the nudge; a counter that only appears once you already have one
+            // cannot persuade anybody to begin.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (examMode)
-                        MaterialTheme.colorScheme.primaryContainer
+                    containerColor = if (streak.activeToday)
+                        MaterialTheme.colorScheme.tertiaryContainer
                     else
                         MaterialTheme.colorScheme.surfaceVariant,
                 ),
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(
+                        text = streak.label,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (streak.best > 1) {
                         Text(
-                            text = "Exam Mode",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = if (examMode) "Short & direct answers" else "Detailed explanations",
+                            text = "Best so far: ${streak.best} days",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Switch(checked = examMode, onCheckedChange = { examMode = it })
                 }
             }
+
+            // Language picker — first thing on the screen, because explaining
+            // in the student's own language is the reason to use this app.
+            LanguageSelector(
+                language = language,
+                onLanguageChange = {
+                    language = it
+                    LanguagePrefs.set(context, it)
+                },
+            )
 
             // Exam board selector
             BoardSelector(
@@ -126,7 +145,7 @@ fun HomeScreen(
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             Button(
-                onClick = { onScanQuestion(examMode, board) },
+                onClick = { onScanQuestion(board) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -134,11 +153,11 @@ fun HomeScreen(
                     contentColor = Color.White,
                 ),
             ) {
-                Text("Scan Question")
+                Text("Scan & Understand")
             }
 
             Button(
-                onClick = { onUploadScreenshot(examMode, board) },
+                onClick = { onUploadScreenshot(board) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -151,7 +170,7 @@ fun HomeScreen(
 
             // Home Work — generate practice questions to solve yourself
             Button(
-                onClick = { onHomework(examMode, board) },
+                onClick = { onHomework(board) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
                 colors = ButtonDefaults.buttonColors(

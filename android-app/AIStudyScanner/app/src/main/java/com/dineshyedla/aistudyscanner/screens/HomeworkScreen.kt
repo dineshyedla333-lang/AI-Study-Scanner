@@ -1,5 +1,6 @@
 package com.aistudyscanner.agent.screens
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -28,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,7 +41,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aistudyscanner.agent.i18n.languageFor
 import com.aistudyscanner.agent.network.HomeworkItem
+import com.aistudyscanner.agent.tts.SpeechFailure
+import com.aistudyscanner.agent.tts.SpeechPlayer
 
 private val COUNT_OPTIONS = listOf(5, 10, 15, 20)
 
@@ -49,7 +52,6 @@ private val COUNT_OPTIONS = listOf(5, 10, 15, 20)
 @Composable
 fun HomeworkScreen(
     onBack: () -> Unit,
-    initialExamMode: Boolean = true,
     initialBoard: String = "Auto",
     vm: HomeworkViewModel = viewModel(),
 ) {
@@ -57,7 +59,7 @@ fun HomeworkScreen(
     val state by vm.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        vm.setExamMode(initialExamMode)
+        vm.loadLanguage(context)
         vm.setBoard(initialBoard)
     }
 
@@ -84,7 +86,8 @@ fun HomeworkScreen(
             Spacer(Modifier.height(4.dp))
 
             Text(
-                text = "Generate practice questions, solve them yourself, then reveal the answers.",
+                text = "Generate practice questions, solve them yourself, then reveal the " +
+                    "worked solutions.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -113,29 +116,11 @@ fun HomeworkScreen(
                 }
             }
 
-            // Exam mode + board (carried from Home, editable here too)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text(
-                        text = "Exam Mode",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = if (state.examMode) "Short answers" else "Detailed answers",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = state.examMode,
-                    onCheckedChange = { vm.setExamMode(it) },
-                )
-            }
+            // Language + board (carried from Home, editable here too)
+            LanguageSelector(
+                language = state.language,
+                onLanguageChange = { vm.setLanguage(context, it) },
+            )
 
             BoardSelector(
                 board = state.board,
@@ -206,6 +191,7 @@ fun HomeworkScreen(
                         item = item,
                         revealed = index in state.revealed,
                         onToggle = { vm.toggleReveal(index) },
+                        language = state.language,
                     )
                 }
             }
@@ -221,7 +207,10 @@ private fun HomeworkQuestionCard(
     item: HomeworkItem,
     revealed: Boolean,
     onToggle: () -> Unit,
+    language: String,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isSpeaking by SpeechPlayer.isSpeaking.collectAsState()
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -259,13 +248,51 @@ private fun HomeworkQuestionCard(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                     ),
                 ) {
-                    Text(
-                        text = item.answer.ifBlank { "No answer provided." },
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = item.answer.ifBlank { "No answer provided." },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        if (item.answer.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            // Same read-aloud as the solution screen: a student
+                            // who follows better by ear should not have to go
+                            // back to Scan to get it.
+                            OutlinedButton(
+                                onClick = {
+                                    if (isSpeaking) {
+                                        SpeechPlayer.stop()
+                                    } else {
+                                        SpeechPlayer.speak(
+                                            context = context,
+                                            markdown = item.answer,
+                                            languageCode = language,
+                                        ) { failure ->
+                                            Toast.makeText(
+                                                context,
+                                                speechErrorMessage(failure, language),
+                                                Toast.LENGTH_LONG,
+                                            ).show()
+                                        }
+                                    }
+                                },
+                            ) {
+                                Text(if (isSpeaking) "Stop listening" else "🔊 Listen")
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** One wording for a missing voice, shared by every Listen button. */
+internal fun speechErrorMessage(failure: SpeechFailure, language: String): String =
+    when (failure) {
+        SpeechFailure.LANGUAGE_UNAVAILABLE ->
+            "Your phone has no voice for ${languageFor(language).englishName} yet. " +
+                "Install it in Settings → Text-to-speech."
+        SpeechFailure.ENGINE_UNAVAILABLE ->
+            "Text-to-speech isn't available on this phone."
+    }
