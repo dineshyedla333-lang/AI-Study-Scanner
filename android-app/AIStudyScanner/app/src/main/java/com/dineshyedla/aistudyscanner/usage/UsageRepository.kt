@@ -1,6 +1,7 @@
 package com.aistudyscanner.agent.usage
 
 import android.content.Context
+import android.util.Log
 import com.aistudyscanner.agent.BuildConfig
 import com.aistudyscanner.agent.billing.ProPrefs
 import com.google.firebase.auth.FirebaseAuth
@@ -49,6 +50,8 @@ data class UsageStatus(
  *  - bonus: number (extra quota granted by rewarded ads, on top of limitPerDay)
  *  - updatedAt: server timestamp
  */
+private const val TAG = "UsageRepository"
+
 class UsageRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -72,6 +75,29 @@ class UsageRepository(
      * Returns updated UsageStatus (after increment attempt).
      * If limit is already reached, it DOES NOT increment and returns current status.
      */
+    /**
+     * [tryConsumeOne] that never throws, returning null when the local count
+     * could not be read or written.
+     *
+     * Firestore transactions need a live connection — they cannot be served
+     * from cache — so this fails on a flaky network, while anonymous sign-in
+     * is still in flight on a fresh install, and any time the security rules
+     * say no. None of those are reasons to refuse a student an answer.
+     *
+     * Null therefore means "carry on": the backend meters the same quota per
+     * uid and is the real authority, and it already allows a request when its
+     * own Firestore check fails (see `_reserve` in main.py). This counter is a
+     * client-side convenience, so it must never be the thing that decides a
+     * solve cannot happen.
+     */
+    suspend fun tryConsumeOneOrNull(context: Context): UsageStatus? =
+        try {
+            tryConsumeOne(context)
+        } catch (e: Exception) {
+            Log.w(TAG, "Local quota check failed; letting the server decide", e)
+            null
+        }
+
     suspend fun tryConsumeOne(context: Context): UsageStatus {
         // Pro subscribers skip metering entirely, so no Firestore round trip and no
         // counter to grow. Read from ProPrefs rather than BillingManager's flow: the

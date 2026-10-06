@@ -144,9 +144,11 @@ fun SolutionScreen(
                 maxLines = 8,
             )
 
-            // Changing the language here re-explains the same question, so a
-            // student who cannot follow the English can switch and try again
-            // without rescanning.
+            // Changing the language here re-explains the same question on the
+            // spot, so a student who cannot follow the English can switch without
+            // rescanning and without hunting for the button again. Switching back
+            // to a language already fetched is served from memory, so comparing
+            // two of them costs nothing.
             LanguageSelector(
                 language = state.language,
                 onLanguageChange = { vm.setLanguage(context, it) },

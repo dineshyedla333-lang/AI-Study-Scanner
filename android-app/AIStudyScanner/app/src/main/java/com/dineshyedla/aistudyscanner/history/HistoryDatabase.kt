@@ -23,7 +23,15 @@ abstract class HistoryDatabase : RoomDatabase() {
                     context.applicationContext,
                     HistoryDatabase::class.java,
                     "history_database",
-                ).build().also { instance = it }
+                )
+                    // A phone that ran a newer build than this one has a higher
+                    // schema version on disk, and Room refuses to open it at
+                    // all — which took down solving, not just history. Losing
+                    // saved answers on a downgrade is survivable; being unable
+                    // to answer anything is not.
+                    .fallbackToDestructiveMigrationOnDowngrade()
+                    .build()
+                    .also { instance = it }
             }
         }
     }

@@ -91,9 +91,11 @@ class NewsAgentViewModel(
         )
         viewModelScope.launch {
             try {
-                val usage = usageRepo.tryConsumeOne(context)
+                // Null = the local counter was unreachable; let the server's
+                // quota decide rather than refusing the student outright.
+                val usage = usageRepo.tryConsumeOneOrNull(context)
                 _uiState.value = _uiState.value.copy(usage = usage)
-                if (!usage.isAllowed) {
+                if (usage != null && !usage.isAllowed) {
                     _uiState.value = _uiState.value.copy(
                         isPreviewing = false,
                         error = "Daily free limit reached (10/day). Try again tomorrow.",

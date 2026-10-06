@@ -39,9 +39,23 @@ class AIStudyScannerApplication : Application() {
         // suitable for minors wherever they are treated as children. Without this,
         // AdMob may serve up to mature content. PG keeps decent fill; G is stricter
         // but noticeably thins inventory.
+        //
+        // setMaxAdContentRating governs what the ad may SHOW; it does nothing about
+        // how the viewer is TARGETED. Every user of this app is a school student, so
+        // under India's DPDP Act 2023 every user is a child (under 18, not under 13)
+        // and s.9(2) bans advertising targeted at children. Tagging the whole app as
+        // under the age of consent forces non-personalised ads for everyone, which is
+        // what that section actually requires. It costs eCPM; at this install count
+        // that is a rounding error next to shipping targeted ads at minors.
+        //
+        // Deliberately NOT setTagForChildDirectedTreatment: that is COPPA's under-13
+        // regime, and it would also suppress the rewarded ads the free quota depends on.
         MobileAds.setRequestConfiguration(
             RequestConfiguration.Builder()
                 .setMaxAdContentRating(RequestConfiguration.MAX_AD_CONTENT_RATING_PG)
+                .setTagForUnderAgeOfConsent(
+                    RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE
+                )
                 .build()
         )
         // Pro is sold as ad-free, so a subscriber never even initialises the ads SDK.

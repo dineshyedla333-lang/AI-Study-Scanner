@@ -13,3 +13,8 @@
 -keepclassmembers class com.aistudyscanner.agent.ui.MathBridge {
     @android.webkit.JavascriptInterface <methods>;
 }
+
+# Keep exception class names. R8 renamed them, so a real fault reached the user
+# (and the logs) as "something went wrong (n)" — unreadable, and undiagnosable
+# from a screenshot. Names only: the classes are still shrunk and optimised.
+-keepnames class * extends java.lang.Throwable

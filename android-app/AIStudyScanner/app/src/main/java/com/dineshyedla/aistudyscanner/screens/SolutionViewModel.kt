@@ -2,6 +2,7 @@ package com.aistudyscanner.agent.screens
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aistudyscanner.agent.auth.ProfilePrefs
@@ -21,11 +22,13 @@ import com.aistudyscanner.agent.usage.Streak
 import com.aistudyscanner.agent.usage.TrialPrefs
 import com.aistudyscanner.agent.usage.UsageRepository
 import com.aistudyscanner.agent.usage.UsageStatus
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.io.IOException
 import retrofit2.HttpException
 
 data class DetectedInfo(
@@ -33,6 +36,23 @@ data class DetectedInfo(
     val topic: String = "",
     val difficulty: String = "",
     val examBoard: String = "",
+)
+
+/**
+ * One language's finished explanation, kept in memory so that flipping back to a
+ * language already fetched for this question is instant and costs nothing.
+ *
+ * It has to hold everything the screen renders, not just the answer: restoring a
+ * cached explanation without its steps or its concept card would look like the
+ * app had lost half the work.
+ */
+private data class Explanation(
+    val agentSteps: List<AgentStepResponse>,
+    val detected: DetectedInfo,
+    val answer: String,
+    val interpretedQuestion: String?,
+    val keyConcept: String,
+    val practice: List<HomeworkItem>,
 )
 
 data class SolutionUiState(
@@ -66,14 +86,59 @@ class SolutionViewModel(
     private val _uiState = MutableStateFlow(SolutionUiState())
     val uiState: StateFlow<SolutionUiState> = _uiState.asStateFlow()
 
+    /** Explanations already fetched for [explanationsFor], keyed by language code. */
+    private val explanations = mutableMapOf<String, Explanation>()
+
+    /** The normalised question [explanations] belongs to; "" when nothing is cached. */
+    private var explanationsFor: String = ""
+
     fun setQuestion(text: String) {
         _uiState.value = _uiState.value.copy(extractedText = text)
     }
 
-    /** Changes the explanation language and remembers it for next time. */
+    /**
+     * Changes the explanation language, remembers it, and re-explains the question
+     * that is already on screen.
+     *
+     * The re-explain has to be automatic. The student this feature exists for is
+     * the one who could not read the English answer; expecting them to then find
+     * and tap "Explain step by step" is expecting them to guess, and a picker that
+     * visibly does nothing reads as broken.
+     *
+     * A language already fetched for this same question is restored from memory
+     * with no request at all, so comparing two languages side by side is free. A
+     * language not seen yet is a genuine Groq call and costs one solve, the same
+     * on the phone and on the server — the two counters must never disagree or
+     * the student gets a 403 the screen did not predict.
+     */
     fun setLanguage(context: Context, code: String) {
+        if (code == _uiState.value.language) return
         LanguagePrefs.set(context, code)
         _uiState.value = _uiState.value.copy(language = code)
+
+        // Nothing has been answered yet: the picker is simply a preference for the
+        // solve that is about to happen, so do not fire one of our own.
+        if (_uiState.value.answer == null || _uiState.value.isLoading) return
+
+        val cached = explanations[code]
+            ?.takeIf { explanationsFor == normalise(_uiState.value.extractedText) }
+        if (cached != null) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                currentAgentStep = "",
+                error = null,
+                agentSteps = cached.agentSteps,
+                detected = cached.detected,
+                answer = cached.answer,
+                interpretedQuestion = cached.interpretedQuestion,
+                keyConcept = cached.keyConcept,
+                practice = cached.practice,
+                revealedPractice = emptySet(),
+                isLoadingLearn = false,
+            )
+            return
+        }
+        solve(context)
     }
 
     /** Loads the saved language when the screen opens. */
@@ -156,18 +221,52 @@ class SolutionViewModel(
             keyConcept = "",
             practice = emptyList(),
             revealedPractice = emptySet(),
-            currentAgentStep = "Checking quota…",
+            currentAgentStep = "Agent: classifying question…",
         )
 
         viewModelScope.launch {
             // Held so a failure below can hand the solve back.
             var debited: UsageStatus? = null
             try {
-                val usage = usageRepo.tryConsumeOne(context)
-                _uiState.value = _uiState.value.copy(usage = usage)
-                if (usage.consumedInThisCall) debited = usage
+                // Pinned for the whole request: if the student switches the picker
+                // again while this one is in flight, the reply still belongs to the
+                // language it was asked in and must be cached under that.
+                val lang = _uiState.value.language
+                val board = _uiState.value.examBoard
 
-                if (!usage.isAllowed) {
+                // Quota and answer are fetched at the SAME time, not one after the
+                // other. The quota check is a Firestore transaction, which cannot be
+                // served from cache and so always costs a live round trip; running it
+                // in front of the solve added that latency to every answer the student
+                // ever waited for. The limit is still enforced before anything is
+                // shown — only the waiting is now overlapped.
+                //
+                // runCatching inside the async matters: a bare `async` that throws
+                // propagates to the parent scope the moment it fails, before anyone
+                // awaits it, which would bypass the typed catch blocks below and lose
+                // the refund. Wrapped, the failure waits politely for getOrThrow().
+                val quotaJob = async { usageRepo.tryConsumeOneOrNull(context) }
+                val solveJob = async {
+                    runCatching {
+                        ApiClient.api.agentSolve(
+                            SolveRequest(
+                                question_text = question,
+                                board = board,
+                                language = lang,
+                            )
+                        )
+                    }
+                }
+
+                // Null means the local counter was unreachable. Carry on and
+                // let the server's quota decide — it meters the same uid and
+                // returns a clear 403 when the student really is out.
+                val usage = quotaJob.await()
+                _uiState.value = _uiState.value.copy(usage = usage)
+                if (usage?.consumedInThisCall == true) debited = usage
+
+                if (usage != null && !usage.isAllowed) {
+                    solveJob.cancel()
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         currentAgentStep = "",
@@ -176,43 +275,20 @@ class SolutionViewModel(
                     return@launch
                 }
 
-                _uiState.value = _uiState.value.copy(currentAgentStep = "Agent: classifying question…")
-
-                val resp = ApiClient.api.agentSolve(
-                    SolveRequest(
-                        question_text = question,
-                        board = _uiState.value.examBoard,
-                        language = _uiState.value.language,
-                    )
-                )
+                val resp = solveJob.await().getOrThrow()
 
                 val detected = resp.steps
                     .firstOrNull { it.name == "Classify" }
                     ?.let { parseClassification(it.output) }
                     ?: DetectedInfo()
 
-                HistoryRepository.getInstance(context).saveSolvedQuestion(
-                    questionText = question,
-                    answerText = resp.answer,
-                    // The Room column predates the learning reposition; every
-                    // answer is now a step-by-step explanation, so it is
-                    // always false rather than migrating the schema.
-                    examMode = false,
-                )
-
-                // A free trial solve is spent only on a real answer, never on a
-                // failed OCR, an empty Skip or a server error.
-                if (resp.answer.isNotBlank() && !ProfilePrefs.isRegistered(context)) {
-                    TrialPrefs.record(context)
-                }
-
-                // A real answer is the only thing that counts as studying,
-                // so the streak is recorded here and not on app open.
-                val streak = if (resp.answer.isNotBlank()) {
-                    StreakPrefs.recordActivity(context)
-                } else {
-                    _uiState.value.streak
-                }
+                // Show the answer BEFORE any local bookkeeping. The student has
+                // already spent a solve to get this; a failing history write or
+                // a broken preference must never be able to throw it away and
+                // then blame the network, which is exactly what used to happen.
+                val interpreted = resp.interpreted_question
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() && normalise(it) != normalise(question) }
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -220,17 +296,57 @@ class SolutionViewModel(
                     agentSteps = resp.steps,
                     detected = detected,
                     answer = resp.answer,
-                    streak = streak,
-                    interpretedQuestion = resp.interpreted_question
-                        ?.trim()
-                        ?.takeIf { it.isNotEmpty() && normalise(it) != normalise(question) },
+                    interpretedQuestion = interpreted,
                 )
+                debited = null // delivered; there is nothing left to refund
+
+                // Remember it so switching back to this language is instant and free.
+                // Clearing first when the question changed matters: otherwise an old
+                // Telugu explanation would survive into a newly edited question and be
+                // restored as though it answered it.
+                val normalised = normalise(question)
+                if (explanationsFor != normalised) {
+                    explanations.clear()
+                    explanationsFor = normalised
+                }
+                explanations[lang] = Explanation(
+                    agentSteps = resp.steps,
+                    detected = detected,
+                    answer = resp.answer,
+                    interpretedQuestion = interpreted,
+                    keyConcept = "",
+                    practice = emptyList(),
+                )
+
+                // Bookkeeping, each independently non-fatal.
+                runCatching {
+                    HistoryRepository.getInstance(context).saveSolvedQuestion(
+                        questionText = question,
+                        answerText = resp.answer,
+                        // The Room column predates the learning reposition;
+                        // every answer is now a step-by-step explanation.
+                        examMode = false,
+                    )
+                }
+
+                // A free trial solve is spent only on a real answer, never on a
+                // failed OCR, an empty Skip or a server error.
+                if (resp.answer.isNotBlank() && !ProfilePrefs.isRegistered(context)) {
+                    runCatching { TrialPrefs.record(context) }
+                }
+
+                // A real answer is the only thing that counts as studying,
+                // so the streak is recorded here and not on app open.
+                if (resp.answer.isNotBlank()) {
+                    runCatching { StreakPrefs.recordActivity(context) }
+                        .onSuccess { _uiState.value = _uiState.value.copy(streak = it) }
+                }
 
                 // Fire-and-forget: the answer is already on screen and the
                 // concept card fills in behind it. A failure here is silent
                 // by design — it costs the student nothing and saying
                 // "couldn't load the extra bit" only adds noise.
-                loadLearnExtras(question, resp.answer, detected)
+                loadLearnExtras(question, resp.answer, detected, lang)
             } catch (e: HttpException) {
                 refund(context, debited)
                 val server = ApiErrors.parse(e.response()?.errorBody()?.string())
@@ -262,13 +378,27 @@ class SolutionViewModel(
                     currentAgentStep = "",
                     error = ServerWarmup.TOO_SLOW_MESSAGE,
                 )
-            } catch (e: Exception) {
+            } catch (e: IOException) {
                 refund(context, debited)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     currentAgentStep = "",
                     error = "Couldn't reach the server. Check your connection and try " +
                         "again — your free solve wasn't used.",
+                )
+            } catch (e: Exception) {
+                // Not the network. Saying "check your connection" here sent the
+                // student chasing a problem that was never theirs, so report it
+                // as what it is and keep the detail for the bug report.
+                refund(context, debited)
+                Log.e("SolutionViewModel", "Solve failed unexpectedly", e)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    currentAgentStep = "",
+                    error = "Something went wrong on this phone, not on the server " +
+                        "(${e.javaClass.simpleName}" +
+                        (e.message?.take(90)?.let { ": $it" } ?: "") +
+                        "). Your free solve wasn't used. Please try again.",
                 )
             }
         }
@@ -284,6 +414,7 @@ class SolutionViewModel(
         question: String,
         answer: String,
         detected: DetectedInfo,
+        lang: String,
     ) {
         if (answer.isBlank()) return
         _uiState.value = _uiState.value.copy(isLoadingLearn = true)
@@ -296,15 +427,29 @@ class SolutionViewModel(
                         subject = detected.subject.ifBlank { null },
                         topic = detected.topic.ifBlank { null },
                         count = 3,
-                        language = _uiState.value.language,
+                        language = lang,
                     )
                 )
             }.getOrNull()
 
+            val keyConcept = result?.key_concept.orEmpty()
+            val practice = result?.practice.orEmpty()
+
+            // Fold it into the cached explanation so a later switch back restores the
+            // concept card too, rather than showing a half-empty screen.
+            explanations[lang]?.let {
+                explanations[lang] = it.copy(keyConcept = keyConcept, practice = practice)
+            }
+
+            // This lands after the answer, so the student may already have switched
+            // language. Writing then would staple one language's concept card under
+            // another language's answer, so leave the screen alone.
+            if (_uiState.value.language != lang) return@launch
+
             _uiState.value = _uiState.value.copy(
                 isLoadingLearn = false,
-                keyConcept = result?.key_concept.orEmpty(),
-                practice = result?.practice.orEmpty(),
+                keyConcept = keyConcept,
+                practice = practice,
                 revealedPractice = emptySet(),
             )
         }

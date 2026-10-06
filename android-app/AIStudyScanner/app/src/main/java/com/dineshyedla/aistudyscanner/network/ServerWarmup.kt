@@ -36,8 +36,16 @@ object ServerWarmup {
     /** Worst-case time [awaitAwake] can block, for sizing the API call timeout. */
     val MAX_WAIT_S: Long = ATTEMPT_TIMEOUTS_S.sum() + ATTEMPT_TIMEOUTS_S.size * 3
 
-    /** Trust a success for well under Render's ~15 min idle spin-down. */
-    private const val WARM_FOR_MS = 5 * 60_000L
+    /**
+     * Trust a success for well under Render's ~15 min idle spin-down.
+     *
+     * Once this window lapses, the next solve pays for a full /health round trip
+     * BEFORE its own request goes out — two serial calls for one answer, which is
+     * a large part of why solving felt slow. An external cron now pings /health
+     * every 10 minutes, so the instance does not actually sleep; 10 minutes still
+     * leaves a 5-minute margin against the spin-down if that cron ever stops again.
+     */
+    private const val WARM_FOR_MS = 10 * 60_000L
 
     /** Warm servers answer /health in well under this, so the banner never flickers. */
     private const val BANNER_DELAY_MS = 1_500L
