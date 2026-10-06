@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 @dataclass(frozen=True)
 class Settings:
-    app_name: str = "AI Study Scanner Agent"
+    app_name: str = "AI Study Goal Agent"
     host: str = "127.0.0.1"
     port: int = 8000
     log_level: str = "info"
