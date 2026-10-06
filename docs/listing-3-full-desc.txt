@@ -1,15 +1,21 @@
-Stuck on a question? Scan it and get a clear, step-by-step answer in seconds.
+Stuck on a question? Scan it and get a clear, step-by-step answer in seconds - in your own language.
 
 AI Study Goal Agent is a study companion built for Indian students - school boards and competitive exams alike. Point your camera at any question from your textbook, worksheet or question paper, and get a worked solution you can actually learn from.
 
-SCAN AND SOLVE ANY QUESTION
-Take a photo or upload a screenshot. The app reads the question - including maths symbols, powers and fractions - and returns a full step-by-step solution. Works for Maths, Physics, Chemistry and Biology.
+SCAN AND UNDERSTAND ANY QUESTION
+Take a photo or upload a screenshot. The app reads the question - including maths symbols, powers and fractions - and explains it step by step: the concept, the method, each step, then the final answer. Works for Maths, Physics, Chemistry and Biology.
+
+LEARN IN YOUR OWN LANGUAGE
+Get the explanation in English, Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Bengali or Gujarati. Formulas and technical terms stay in English so you still recognise them in your exam. Change the language on the answer screen and the same question is explained again straight away - no need to scan it twice.
+
+LISTEN TO ANY ANSWER
+Tap Listen and the explanation is read aloud in the language you chose - useful when your eyes are tired, or when you are revising on the move.
 
 BUILT FOR YOUR EXAM
-Choose CBSE, JEE, NEET, EAMCET or UPSC, and answers match your syllabus and the answering style your exam expects. Or leave it on Auto and let the AI work it out.
+Choose CBSE, JEE, NEET, EAMCET or UPSC and answers follow your syllabus. Or leave it on Auto and let the AI work it out.
 
-EXAM MODE
-Switch on Exam Mode for short, direct answers in the format examiners want. Switch it off for detailed explanations when you are learning a topic for the first time.
+KEY CONCEPT AND PRACTICE
+After every answer you also get the concept behind it, plus practice questions to check you have really understood it - not just copied it.
 
 PRACTICE QUESTIONS ON ANY TOPIC
 Generate fresh practice questions with answers on any chapter you choose. Pick how many you want and revise at your own pace - useful for last-minute revision before a test.
@@ -19,6 +25,9 @@ Tell the app your exam, how many months you have and how many hours a day you ca
 
 DAILY CURRENT AFFAIRS FOR UPSC
 Opt in and receive current-affairs questions and answers drawn from the day's news, delivered as a notification at a time you choose - up to four times a day. Stay exam-ready without endlessly scrolling news apps.
+
+DAILY STREAK
+Solve at least one question a day and build your streak. A small nudge to keep going.
 
 HISTORY
 Every question you solve is saved, so you can revisit past doubts and revise before an exam.
@@ -33,12 +42,15 @@ WHO IT IS FOR
 WHY STUDENTS USE IT
 - Solve doubts instantly instead of waiting for a tutor
 - Learn the method, not just the final answer
-- Build exam-ready answering skills
+- Study in the language you think in
 - Daily current affairs without the scrolling
 - Clean, simple, distraction-free design
 
-ACCOUNT AND PRIVACY
-Sign in with your Google account to get started. We use your details only to manage your account and deliver the notifications you opt in to. We never sell your data.
+GETTING STARTED
+Start solving straight away - no sign-up needed for your first questions. Create an account when you want your history and streak saved across devices.
+
+PRIVACY
+We use your details only to manage your account and to deliver the notifications you opt in to. We never sell your data.
 Privacy policy: https://dineshyedla333-lang.github.io/AI-Study-Scanner/privacy-policy.html
 
-Start scanning, practising and staying exam-ready today.
+Start scanning, understanding and staying exam-ready today.
