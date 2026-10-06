@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Same navy gradient as docs/app-icon.svg, so the launcher matches the Play listing. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -14,8 +13,9 @@
                 android:startY="0"
                 android:endX="108"
                 android:endY="108">
-                <item android:offset="0" android:color="#FF1A1A2E" />
-                <item android:offset="1" android:color="#FF16213E" />
+                <item android:offset="0" android:color="#FF332D84" />
+                <item android:offset="0.5" android:color="#FF5B21B6" />
+                <item android:offset="1" android:color="#FF7A38E9" />
             </gradient>
         </aapt:attr>
     </path>
