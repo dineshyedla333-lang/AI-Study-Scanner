@@ -1,12 +1,14 @@
-# Play Store listing copy — AI Study Scan Agent
+# Play Store listing copy — AI Study Goal Agent
 Drafted 2026-09-20. Paste into: Grow users > Store presence > Store listings > Edit default listing.
 
 ## APP NAME — NOT CHANGING (decision 2026-09-20)
-Keeping the existing name: AI Study Scanner Agent
+Name CHANGED 2026-10-06 to: AI Study Goal Agent
+  Play title may carry a suffix, e.g. 'AI Study Goal Agent: Doubts' (27 ch).
+  Verified on Play 2026-10-06: no app uses this title.
 Revisit only if installs stay flat. Candidates when/if we do:
   AI Doubt Solver: JEE NEET CBSE   (30 chars, best for search)
   AI Study Scan: Doubt Solver      (27 chars, keeps brand)
-Note: the on-device launcher label is android:label="AI Study Scan Agent"
+Note: the on-device launcher label is android:label="AI Study Goal Agent" (now aligned).
 in AndroidManifest.xml - changing that needs a rebuild (code 19).
 
 ## SHORT DESCRIPTION (limit 80)
@@ -15,7 +17,7 @@ Scan any question. Get step-by-step answers for JEE, NEET, CBSE & UPSC.
 ## FULL DESCRIPTION (limit 4000)
 Stuck on a question? Scan it and get a clear, step-by-step answer in seconds.
 
-AI Study Scanner Agent is a study companion built for Indian students - school boards and competitive exams alike. Point your camera at any question from your textbook, worksheet or question paper, and get a worked solution you can actually learn from.
+AI Study Goal Agent is a study companion built for Indian students - school boards and competitive exams alike. Point your camera at any question from your textbook, worksheet or question paper, and get a worked solution you can actually learn from.
 
 SCAN AND SOLVE ANY QUESTION
 Take a photo or upload a screenshot. The app reads the question - including maths symbols, powers and fractions - and returns a full step-by-step solution. Works for Maths, Physics, Chemistry and Biology.

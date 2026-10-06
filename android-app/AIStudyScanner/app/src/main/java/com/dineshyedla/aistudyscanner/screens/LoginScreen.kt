@@ -62,7 +62,7 @@ fun LoginScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "Welcome to AI Study Scan Agent",
+            text = "Welcome to AI Study Goal Agent",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )

@@ -35,7 +35,7 @@ organic mechanism. The "wow" comes from the difficulty, not from your app.
 
 0:22-0:25  SOFT CTA
   Visual : app home screen
-  Text   : "Free on Play Store - AI Study Scanner Agent"
+  Text   : "Free on Play Store - AI Study Goal Agent"
   Spoken : nothing. Let the text do it.
 
 ## TITLE (YouTube)

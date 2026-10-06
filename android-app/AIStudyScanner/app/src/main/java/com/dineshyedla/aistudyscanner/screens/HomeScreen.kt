@@ -72,7 +72,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AI Study Scan Agent") },
+                title = { Text("AI Study Goal Agent") },
                 actions = {
                     IconButton(onClick = onProfile) {
                         Icon(

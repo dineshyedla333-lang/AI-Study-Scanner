@@ -1,6 +1,6 @@
 Stuck on a question? Scan it and get a clear, step-by-step answer in seconds.
 
-AI Study Scanner Agent is a study companion built for Indian students - school boards and competitive exams alike. Point your camera at any question from your textbook, worksheet or question paper, and get a worked solution you can actually learn from.
+AI Study Goal Agent is a study companion built for Indian students - school boards and competitive exams alike. Point your camera at any question from your textbook, worksheet or question paper, and get a worked solution you can actually learn from.
 
 SCAN AND SOLVE ANY QUESTION
 Take a photo or upload a screenshot. The app reads the question - including maths symbols, powers and fractions - and returns a full step-by-step solution. Works for Maths, Physics, Chemistry and Biology.

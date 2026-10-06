@@ -7,7 +7,7 @@ none of these settings live there.
 **Get to app level first:**
 
 1. Open <https://play.google.com/console>
-2. In the **1 app** list, click **AI Study Scanner Agent**
+2. In the **1 app** list, click **AI Study Goal Agent**
 3. The left menu changes — it now shows Dashboard, Test and release, Monetise,
    Grow, **Policy**, etc. Everything below uses this menu.
 

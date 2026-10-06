@@ -188,7 +188,7 @@ class SolutionViewModel(
             }
             append("Question:\n${state.extractedText}\n\n")
             append("Answer:\n$answer\n\n")
-            append("Solved by AI Study Scanner")
+            append("Solved by AI Study Goal Agent")
         }
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

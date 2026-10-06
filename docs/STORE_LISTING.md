@@ -9,13 +9,14 @@ console** before saving — counts below are approximate.
 
 Play search ranks on keyword relevance plus install/retention signals. At ~10
 installs there are no install signals to trade on, so the listing text is the only
-lever available. The current title, "AI Study Scan Agent", contains none of the
+lever available. The title was "AI Study Scan Agent" until 2026-10-06; it contained none of the
 words a student actually types — nobody searches for "scan agent". They search
 "NEET doubt solver", "homework help app", "JEE question answer".
 
 ## App name (30 char cap)
 
-Current: `AI Study Scan Agent` (19) — descriptive of the tech, invisible to search.
+Current: `AI Study Goal Agent` (19) — renamed 2026-10-06. Play title may add a suffix,
+e.g. `AI Study Goal Agent: Doubts` (27), since 'Goal' alone reads as a planner app.
 
 | Option | Chars | Trade-off |
 |---|---|---|
@@ -43,7 +44,7 @@ Stuck on a question? Scan it and get a clear step-by-step answer in seconds.
 Stuck on a tough question? Scan it with your camera and get a clear,
 step-by-step answer in seconds.
 
-AI Study Scan Agent is built for Indian students preparing for school exams
+AI Study Goal Agent is built for Indian students preparing for school exams
 and competitive entrance tests. Point your camera at any printed question,
 upload a photo, or type it in — the AI reads it, works out the answer, and
 shows you how it got there.
